@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "vmware-nsx-security": {
+      "command": "vmware-nsx-security-mcp",
+      "env": {
+        "VMWARE_NSX_SECURITY_CONFIG": "${HOME}/.vmware-nsx-security/config.yaml"
+      }
+    }
+  }
+}

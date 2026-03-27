@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.zw008/vmware-nsx-security",
+  "title": "VMware NSX Security",
+  "description": "VMware NSX DFW microsegmentation and security with 20 MCP tools: distributed firewall policies/rules, security groups, VM tags, Traceflow, and IDPS.",
+  "repository": {
+    "url": "https://github.com/zw008/VMware-NSX-Security",
+    "source": "github"
+  },
+  "version": "1.3.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "vmware-nsx-security",
+      "version": "1.3.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

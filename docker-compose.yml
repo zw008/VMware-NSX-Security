@@ -1,0 +1,8 @@
+services:
+  vmware-nsx-security-mcp:
+    build: .
+    volumes:
+      - ~/.vmware-nsx-security:/root/.vmware-nsx-security:ro
+    environment:
+      - VMWARE_NSX_SECURITY_CONFIG=/root/.vmware-nsx-security/config.yaml
+    stdin_open: true
