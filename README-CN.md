@@ -87,16 +87,16 @@ vmware-nsx-security traceflow run <src-lport-id> \
 - **Dry-run 模式**：CLI 写命令均支持 `--dry-run` 预览
 - **凭据安全**：密码仅从环境变量读取，永不写入 config.yaml
 
-## 配套 Skill
+### 配套 Skill
 
-| Skill | 用途 |
-|-------|------|
-| **vmware-nsx** | 网段、网关、NAT、路由、IPAM |
-| **vmware-nsx-security** | DFW、安全组、标签、Traceflow、IDPS ← 本 skill |
-| **vmware-aiops** | VM 生命周期、部署、Guest 操作 |
-| **vmware-monitor** | vSphere 监控、告警、事件 |
-| **vmware-storage** | iSCSI、vSAN、数据存储 |
-| **vmware-vks** | Tanzu Kubernetes |
+| Skill | 功能范围 | 工具数 | 安装 |
+|-------|---------|:-----:|------|
+| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** ⭐ 入口 | VM 生命周期、部署、Guest 操作、集群管理 | 31 | `uv tool install vmware-aiops` |
+| **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | 只读监控：告警、事件、VM 信息 | 8 | `uv tool install vmware-monitor` |
+| **[vmware-nsx](https://github.com/zw008/VMware-NSX)** | NSX 网络：Segment、网关、NAT、IPAM | 31 | `uv tool install vmware-nsx-mgmt` |
+| **[vmware-storage](https://github.com/zw008/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
+| **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
+| **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Ops 指标、告警、容量规划 | 18 | `uv tool install vmware-aria` |
 
 ## 许可证
 
