@@ -11,6 +11,8 @@ description: >
 installer:
   kind: uv
   package: vmware-nsx-security
+allowed-tools:
+  - Bash
 metadata: {"openclaw":{"requires":{"env":["VMWARE_NSX_SECURITY_CONFIG"],"bins":["vmware-nsx-security"],"config":["~/.vmware-nsx-security/config.yaml"]},"primaryEnv":"VMWARE_NSX_SECURITY_CONFIG","homepage":"https://github.com/zw008/VMware-NSX-Security","emoji":"🔒","os":["macos","linux"]}}
 ---
 
