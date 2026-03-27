@@ -1,0 +1,15 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      config_path:
+        type: string
+        description: "Path to vmware-nsx-security config.yaml (default: ~/.vmware-nsx-security/config.yaml)"
+    required: []
+  commandFunction: |
+    (config) => ({
+      command: "vmware-nsx-security-mcp",
+      args: [],
+      env: config.config_path ? { VMWARE_NSX_SECURITY_CONFIG: config.config_path } : {}
+    })
