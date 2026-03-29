@@ -22,6 +22,7 @@ VMware NSX DFW microsegmentation and security — 20 MCP tools for distributed f
 
 > Domain-focused security skill for NSX-T / NSX 4.x Policy API.
 > **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring).
+> | [vmware-pilot](../vmware-pilot/SKILL.md) (workflow orchestration) | [vmware-policy](../vmware-policy/SKILL.md) (audit/policy)
 
 ## What This Skill Does
 
@@ -69,6 +70,8 @@ vmware-nsx-security doctor
 | VM lifecycle, deployment, guest ops | **vmware-aiops** |
 | Storage: iSCSI, vSAN, datastores | **vmware-storage** |
 | Tanzu Kubernetes | **vmware-vks** |
+| Multi-step workflows with approval | **vmware-pilot** |
+| Audit log query | **vmware-policy** (`vmware-audit` CLI) |
 
 ## Common Workflows
 
@@ -253,6 +256,8 @@ chmod 600 ~/.vmware-nsx-security/.env
 
 vmware-nsx-security doctor
 ```
+
+> All tools are automatically audited via vmware-policy. Audit logs: `vmware-audit log --last 20`
 
 > Full setup guide: see `references/setup-guide.md`
 

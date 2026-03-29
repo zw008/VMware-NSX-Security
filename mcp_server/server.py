@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from vmware_policy import vmware_tool
 
 from vmware_nsx_security.config import load_config
 from vmware_nsx_security.connection import ConnectionManager
@@ -81,6 +82,7 @@ def _get_connection(target: str | None = None) -> Any:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_dfw_policies(target: str | None = None) -> list[dict]:
     """List all DFW security policies in the default domain.
 
@@ -97,6 +99,7 @@ def list_dfw_policies(target: str | None = None) -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
     """Get full details of a single DFW security policy.
 
@@ -111,6 +114,7 @@ def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
     """List all rules in a DFW security policy.
 
@@ -128,6 +132,7 @@ def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def get_dfw_rule_stats(
     policy_id: str,
     rule_id: str,
@@ -155,6 +160,7 @@ def get_dfw_rule_stats(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def create_dfw_policy(
     policy_id: str,
     display_name: str,
@@ -195,6 +201,7 @@ def create_dfw_policy(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def update_dfw_policy(
     policy_id: str,
     display_name: str | None = None,
@@ -231,6 +238,7 @@ def update_dfw_policy(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
     """Delete a DFW security policy.
 
@@ -260,6 +268,7 @@ def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def create_dfw_rule(
     policy_id: str,
     rule_id: str,
@@ -322,6 +331,7 @@ def create_dfw_rule(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def update_dfw_rule(
     policy_id: str,
     rule_id: str,
@@ -372,6 +382,7 @@ def update_dfw_rule(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> dict:
     """Delete a DFW rule from a policy.
 
@@ -399,6 +410,7 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> 
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_groups(target: str | None = None) -> list[dict]:
     """List all NSX security groups in the default domain.
 
@@ -414,6 +426,7 @@ def list_groups(target: str | None = None) -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def get_group(group_id: str, target: str | None = None) -> dict:
     """Get details of a security group including membership criteria and effective members.
 
@@ -435,6 +448,7 @@ def get_group(group_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def create_group(
     group_id: str,
     display_name: str,
@@ -482,6 +496,7 @@ def create_group(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def delete_group(group_id: str, target: str | None = None) -> dict:
     """Delete an NSX security group.
 
@@ -511,6 +526,7 @@ def delete_group(group_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
     """List all NSX tags applied to a virtual machine.
 
@@ -533,6 +549,7 @@ def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def apply_vm_tag(
     vm_id: str,
     tag_scope: str,
@@ -570,6 +587,7 @@ def apply_vm_tag(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def run_traceflow(
     src_lport_id: str,
     src_ip: str,
@@ -608,6 +626,7 @@ def run_traceflow(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
     """Get the current status and observations of an existing Traceflow.
 
@@ -629,6 +648,7 @@ def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_idps_profiles(target: str | None = None) -> list[dict]:
     """List all IDPS profiles configured in NSX.
 
@@ -645,6 +665,7 @@ def list_idps_profiles(target: str | None = None) -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def get_idps_status(target: str | None = None) -> dict:
     """Get the IDPS engine status across all transport nodes.
 

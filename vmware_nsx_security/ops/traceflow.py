@@ -14,26 +14,18 @@ APIs used:
 from __future__ import annotations
 
 import logging
-import re
 import time
 from typing import TYPE_CHECKING, Any
+
+from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
 _log = logging.getLogger("vmware-nsx-security.traceflow")
 
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
 _POLL_INTERVAL = 2  # seconds between status checks
 _MAX_POLLS = 15     # up to 30 seconds total wait time
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Strip control characters and truncate to max_len."""
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", text[:max_len])
 
 
 # ---------------------------------------------------------------------------
@@ -80,8 +72,8 @@ def run_traceflow(
     # Build packet spec
     packet: dict[str, Any] = {
         "resource_type": "FieldsPacketData",
-        "src_ip": _sanitize(src_ip),
-        "dst_ip": _sanitize(dst_ip),
+        "src_ip": sanitize(src_ip),
+        "dst_ip": sanitize(dst_ip),
         "ip_ttl": ttl,
     }
 
@@ -100,7 +92,7 @@ def run_traceflow(
         packet["icmp_code"] = 0
 
     body: dict[str, Any] = {
-        "lport_id": _sanitize(src_lport_id),
+        "lport_id": sanitize(src_lport_id),
         "packet": packet,
     }
 
@@ -129,25 +121,25 @@ def run_traceflow(
         obs_data = client.get(f"/api/v1/traceflows/{tf_id}/observations")
         raw_obs = obs_data.get("results", [])
         for obs in raw_obs:
-            component = _sanitize(obs.get("component_name", ""))
-            obs_type = _sanitize(obs.get("observation_type", ""))
+            component = sanitize(obs.get("component_name", ""))
+            obs_type = sanitize(obs.get("observation_type", ""))
             entry = {
                 "component": component,
                 "type": obs_type,
-                "component_type": _sanitize(obs.get("component_type", "")),
-                "transport_node": _sanitize(obs.get("transport_node_name", "")),
+                "component_type": sanitize(obs.get("component_type", "")),
+                "transport_node": sanitize(obs.get("transport_node_name", "")),
             }
             if obs_type == "DROPPED":
-                entry["reason"] = _sanitize(obs.get("reason", ""))
-                entry["acl_rule_id"] = _sanitize(str(obs.get("acl_rule_id", "")))
+                entry["reason"] = sanitize(obs.get("reason", ""))
+                entry["acl_rule_id"] = sanitize(str(obs.get("acl_rule_id", "")))
             observations.append(entry)
 
             # Collect DFW rule hits
             if obs.get("acl_rule_id"):
                 dfw_hits.append({
                     "component": component,
-                    "acl_rule_id": _sanitize(str(obs.get("acl_rule_id", ""))),
-                    "action": _sanitize(obs.get("reason", "")),
+                    "acl_rule_id": sanitize(str(obs.get("acl_rule_id", ""))),
+                    "action": sanitize(obs.get("reason", "")),
                 })
     except Exception as exc:
         _log.warning("Failed to fetch traceflow observations for %s: %s", tf_id, exc)
@@ -194,11 +186,11 @@ def get_traceflow_result(client: NsxClient, traceflow_id: str) -> dict:
         obs_data = client.get(f"/api/v1/traceflows/{traceflow_id}/observations")
         for obs in obs_data.get("results", []):
             observations.append({
-                "component": _sanitize(obs.get("component_name", "")),
-                "type": _sanitize(obs.get("observation_type", "")),
-                "component_type": _sanitize(obs.get("component_type", "")),
-                "transport_node": _sanitize(obs.get("transport_node_name", "")),
-                "reason": _sanitize(obs.get("reason", "")),
+                "component": sanitize(obs.get("component_name", "")),
+                "type": sanitize(obs.get("observation_type", "")),
+                "component_type": sanitize(obs.get("component_type", "")),
+                "transport_node": sanitize(obs.get("transport_node_name", "")),
+                "reason": sanitize(obs.get("reason", "")),
             })
     except Exception as exc:
         _log.warning("Could not fetch observations: %s", exc)

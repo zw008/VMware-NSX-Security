@@ -16,9 +16,10 @@ import pytest
 
 
 def _get_helpers():
-    """Import _sanitize and _validate_id from dfw_policy module."""
-    from vmware_nsx_security.ops.dfw_policy import _sanitize, _validate_id  # noqa: PLC2701
-    return _sanitize, _validate_id
+    """Import sanitize from vmware_policy and _validate_id from dfw_policy."""
+    from vmware_policy import sanitize  # consolidated sanitize
+    from vmware_nsx_security.ops.dfw_policy import _validate_id  # noqa: PLC2701
+    return sanitize, _validate_id
 
 
 # ---------------------------------------------------------------------------

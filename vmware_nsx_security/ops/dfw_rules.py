@@ -11,6 +11,8 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from vmware_policy import sanitize
+
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
@@ -18,18 +20,9 @@ _log = logging.getLogger("vmware-nsx-security.dfw_rules")
 
 _DFW_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
 _VALID_ACTIONS = {"ALLOW", "DROP", "REJECT", "JUMP_TO_APPLICATION"}
 _VALID_DIRECTIONS = {"IN", "OUT", "IN_OUT"}
 _VALID_IP_PROTOS = {"IPV4", "IPV6", "IPV4_IPV6"}
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Strip control characters and truncate to max_len."""
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", text[:max_len])
 
 
 def _validate_id(value: str, field: str = "id") -> str:
@@ -101,7 +94,7 @@ def create_dfw_rule(
         raise ValueError(f"Invalid ip_protocol '{ip_protocol}'. Must be one of: {_VALID_IP_PROTOS}")
 
     body: dict[str, Any] = {
-        "display_name": _sanitize(display_name),
+        "display_name": sanitize(display_name),
         "action": action,
         "source_groups": sources if sources is not None else ["ANY"],
         "destination_groups": destinations if destinations is not None else ["ANY"],
@@ -115,7 +108,7 @@ def create_dfw_rule(
     if scope:
         body["scope"] = scope
     if description:
-        body["description"] = _sanitize(description)
+        body["description"] = sanitize(description)
 
     result = client.put(f"{_DFW_BASE}/{policy_id}/rules/{rule_id}", body)
     _log.info("Created DFW rule: %s in policy %s (action=%s)", rule_id, policy_id, action)
@@ -165,7 +158,7 @@ def update_dfw_rule(
 
     body: dict[str, Any] = {}
     if display_name is not None:
-        body["display_name"] = _sanitize(display_name)
+        body["display_name"] = sanitize(display_name)
     if action is not None:
         body["action"] = action
     if sources is not None:
@@ -181,7 +174,7 @@ def update_dfw_rule(
     if sequence_number is not None:
         body["sequence_number"] = sequence_number
     if description is not None:
-        body["description"] = _sanitize(description)
+        body["description"] = sanitize(description)
 
     if not body:
         raise ValueError("No fields provided to update.")

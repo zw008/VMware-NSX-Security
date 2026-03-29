@@ -13,22 +13,14 @@ APIs used:
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
+
+from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
 _log = logging.getLogger("vmware-nsx-security.tags")
-
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Strip control characters and truncate to max_len."""
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", text[:max_len])
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +45,7 @@ def list_vm_tags(client: NsxClient, vm_display_name: str) -> dict:
         KeyError: If no VM with that display name is found.
         ValueError: If multiple VMs share the same display name.
     """
-    safe_name = _sanitize(vm_display_name)
+    safe_name = sanitize(vm_display_name)
     data = client.get(
         "/api/v1/fabric/virtual-machines",
         params={"display_name": safe_name},
@@ -71,8 +63,8 @@ def list_vm_tags(client: NsxClient, vm_display_name: str) -> dict:
 
     vm = vms[0]
     return {
-        "vm_id": _sanitize(vm.get("external_id", "")),
-        "display_name": _sanitize(vm.get("display_name", "")),
+        "vm_id": sanitize(vm.get("external_id", "")),
+        "display_name": sanitize(vm.get("display_name", "")),
         "power_state": vm.get("power_state", ""),
         "tags": vm.get("tags", []),
     }
@@ -108,8 +100,8 @@ def apply_vm_tag(
         "resource_type": "VirtualMachine",
         "tags": [
             {
-                "scope": _sanitize(tag_scope),
-                "tag": _sanitize(tag_value),
+                "scope": sanitize(tag_scope),
+                "tag": sanitize(tag_value),
             }
         ],
     }
@@ -147,8 +139,8 @@ def remove_vm_tag(
         "resource_type": "VirtualMachine",
         "tags": [
             {
-                "scope": _sanitize(tag_scope),
-                "tag": _sanitize(tag_value),
+                "scope": sanitize(tag_scope),
+                "tag": sanitize(tag_value),
             }
         ],
     }

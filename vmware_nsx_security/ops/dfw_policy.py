@@ -10,30 +10,14 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from vmware_policy import sanitize
+
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
 _log = logging.getLogger("vmware-nsx-security.dfw_policy")
 
 _DFW_BASE = "/policy/api/v1/infra/domains/default/security-policies"
-
-# Prompt injection defense
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Strip control characters and truncate to max_len.
-
-    Args:
-        text: Input string to sanitize.
-        max_len: Maximum allowed length (default 500).
-
-    Returns:
-        Sanitized string safe to include in tool output.
-    """
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", text[:max_len])
 
 
 def _validate_id(value: str, field: str = "id") -> str:
@@ -77,14 +61,14 @@ def list_dfw_policies(client: NsxClient) -> list[dict]:
     items = client.get_all(_DFW_BASE)
     return [
         {
-            "id": _sanitize(p.get("id", "")),
-            "display_name": _sanitize(p.get("display_name", "")),
-            "category": _sanitize(p.get("category", "")),
+            "id": sanitize(p.get("id", "")),
+            "display_name": sanitize(p.get("display_name", "")),
+            "category": sanitize(p.get("category", "")),
             "sequence_number": p.get("sequence_number", 0),
             "stateful": p.get("stateful", True),
             "tcp_strict": p.get("tcp_strict", False),
             "rule_count": p.get("rule_count", 0),
-            "path": _sanitize(p.get("path", "")),
+            "path": sanitize(p.get("path", "")),
         }
         for p in items
     ]
@@ -103,17 +87,17 @@ def get_dfw_policy(client: NsxClient, policy_id: str) -> dict:
     _validate_id(policy_id, "policy_id")
     p = client.get(f"{_DFW_BASE}/{policy_id}")
     return {
-        "id": _sanitize(p.get("id", "")),
-        "display_name": _sanitize(p.get("display_name", "")),
-        "description": _sanitize(p.get("description", "")),
-        "category": _sanitize(p.get("category", "")),
+        "id": sanitize(p.get("id", "")),
+        "display_name": sanitize(p.get("display_name", "")),
+        "description": sanitize(p.get("description", "")),
+        "category": sanitize(p.get("category", "")),
         "sequence_number": p.get("sequence_number", 0),
         "stateful": p.get("stateful", True),
         "tcp_strict": p.get("tcp_strict", False),
         "locked": p.get("locked", False),
         "scope": p.get("scope", []),
         "tags": p.get("tags", []),
-        "path": _sanitize(p.get("path", "")),
+        "path": sanitize(p.get("path", "")),
         "_revision": p.get("_revision"),
     }
 
@@ -149,13 +133,13 @@ def create_dfw_policy(
     """
     _validate_id(policy_id, "policy_id")
     body: dict[str, Any] = {
-        "display_name": _sanitize(display_name),
+        "display_name": sanitize(display_name),
         "category": category,
         "sequence_number": sequence_number,
         "stateful": stateful,
     }
     if description:
-        body["description"] = _sanitize(description)
+        body["description"] = sanitize(description)
 
     result = client.put(f"{_DFW_BASE}/{policy_id}", body)
     _log.info("Created DFW policy: %s (%s)", policy_id, category)
@@ -188,9 +172,9 @@ def update_dfw_policy(
     _validate_id(policy_id, "policy_id")
     body: dict[str, Any] = {}
     if display_name is not None:
-        body["display_name"] = _sanitize(display_name)
+        body["display_name"] = sanitize(display_name)
     if description is not None:
-        body["description"] = _sanitize(description)
+        body["description"] = sanitize(description)
     if sequence_number is not None:
         body["sequence_number"] = sequence_number
     if stateful is not None:
@@ -254,8 +238,8 @@ def list_dfw_rules(client: NsxClient, policy_id: str) -> list[dict]:
     items = client.get_all(f"{_DFW_BASE}/{policy_id}/rules")
     return [
         {
-            "id": _sanitize(r.get("id", "")),
-            "display_name": _sanitize(r.get("display_name", "")),
+            "id": sanitize(r.get("id", "")),
+            "display_name": sanitize(r.get("display_name", "")),
             "action": r.get("action", "ALLOW"),
             "sources": r.get("source_groups", []),
             "destinations": r.get("destination_groups", []),
@@ -266,7 +250,7 @@ def list_dfw_rules(client: NsxClient, policy_id: str) -> list[dict]:
             "disabled": r.get("disabled", False),
             "logged": r.get("logged", False),
             "sequence_number": r.get("sequence_number", 0),
-            "path": _sanitize(r.get("path", "")),
+            "path": sanitize(r.get("path", "")),
         }
         for r in items
     ]

@@ -13,6 +13,8 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from vmware_policy import sanitize
+
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
@@ -20,15 +22,6 @@ _log = logging.getLogger("vmware-nsx-security.security_group")
 
 _GROUPS_BASE = "/policy/api/v1/infra/domains/default/groups"
 _DFW_POLICIES_BASE = "/policy/api/v1/infra/domains/default/security-policies"
-
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Strip control characters and truncate to max_len."""
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", text[:max_len])
 
 
 def _validate_id(value: str, field: str = "id") -> str:
@@ -59,12 +52,12 @@ def list_groups(client: NsxClient) -> list[dict]:
     items = client.get_all(_GROUPS_BASE)
     return [
         {
-            "id": _sanitize(g.get("id", "")),
-            "display_name": _sanitize(g.get("display_name", "")),
-            "description": _sanitize(g.get("description", "")),
+            "id": sanitize(g.get("id", "")),
+            "display_name": sanitize(g.get("display_name", "")),
+            "description": sanitize(g.get("description", "")),
             "expression_count": len(g.get("expression", [])),
             "tags": g.get("tags", []),
-            "path": _sanitize(g.get("path", "")),
+            "path": sanitize(g.get("path", "")),
         }
         for g in items
     ]
@@ -92,8 +85,8 @@ def get_group(client: NsxClient, group_id: str) -> dict:
         )
         members = [
             {
-                "id": _sanitize(m.get("external_id", "")),
-                "display_name": _sanitize(m.get("display_name", "")),
+                "id": sanitize(m.get("external_id", "")),
+                "display_name": sanitize(m.get("display_name", "")),
                 "type": "VirtualMachine",
             }
             for m in member_data.get("results", [])[:50]
@@ -102,12 +95,12 @@ def get_group(client: NsxClient, group_id: str) -> dict:
         _log.debug("Could not fetch members for group %s", group_id)
 
     return {
-        "id": _sanitize(g.get("id", "")),
-        "display_name": _sanitize(g.get("display_name", "")),
-        "description": _sanitize(g.get("description", "")),
+        "id": sanitize(g.get("id", "")),
+        "display_name": sanitize(g.get("display_name", "")),
+        "description": sanitize(g.get("description", "")),
         "expression": g.get("expression", []),
         "tags": g.get("tags", []),
-        "path": _sanitize(g.get("path", "")),
+        "path": sanitize(g.get("path", "")),
         "member_count": len(members),
         "members": members,
         "_revision": g.get("_revision"),
@@ -164,9 +157,9 @@ def create_group(
         }
         if tag_scope:
             tag_expr["scope_operator"] = "EQUALS"
-            tag_expr["tag"] = {"scope": _sanitize(tag_scope), "tag": _sanitize(tag_value or "")}
+            tag_expr["tag"] = {"scope": sanitize(tag_scope), "tag": sanitize(tag_value or "")}
         else:
-            tag_expr["tag"] = {"tag": _sanitize(tag_value or "")}
+            tag_expr["tag"] = {"tag": sanitize(tag_value or "")}
         expressions.append(tag_expr)
 
     if ip_addresses:
@@ -186,11 +179,11 @@ def create_group(
         })
 
     body: dict[str, Any] = {
-        "display_name": _sanitize(display_name),
+        "display_name": sanitize(display_name),
         "expression": expressions,
     }
     if description:
-        body["description"] = _sanitize(description)
+        body["description"] = sanitize(description)
 
     result = client.put(f"{_GROUPS_BASE}/{group_id}", body)
     _log.info("Created security group: %s", group_id)
