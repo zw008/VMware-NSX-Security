@@ -4,7 +4,7 @@ description: >
   Use this skill whenever the user needs to manage VMware NSX security — distributed firewall (DFW) policies, security groups, microsegmentation, and IDS/IPS.
   Directly handles: create/manage DFW policies and rules, security groups, VM tags, network traceflow diagnostics, IDPS profiles and status.
   Always use this skill for "create firewall rule", "set up microsegmentation", "add VM to security group", "run traceflow", "check IDS status", or any NSX security/DFW task.
-  For NSX networking (segments/gateways/NAT) use vmware-nsx, for VM operations use vmware-aiops.
+  For NSX networking (segments/gateways/NAT) use vmware-nsx, for VM operations use vmware-aiops. For load balancing/AVI/AKO use vmware-avi.
 installer:
   kind: uv
   package: vmware-nsx-security
@@ -20,7 +20,7 @@ compatibility: >
 VMware NSX DFW microsegmentation and security — 20 MCP tools for distributed firewall, security groups, VM tags, Traceflow, and IDPS.
 
 > Domain-focused security skill for NSX-T / NSX 4.x Policy API.
-> **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring).
+> **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO).
 > | [vmware-pilot](../vmware-pilot/SKILL.md) (workflow orchestration) | [vmware-policy](../vmware-policy/SKILL.md) (audit/policy)
 
 ## What This Skill Does
@@ -58,6 +58,7 @@ vmware-nsx-security doctor
 - vSphere inventory, health, alarms, events → `vmware-monitor`
 - Storage: iSCSI, vSAN, datastores → `vmware-storage`
 - Tanzu Kubernetes → `vmware-vks`
+- Load balancing, AVI/ALB, AKO, Ingress → `vmware-avi`
 
 ## Related Skills — Skill Routing
 
@@ -70,6 +71,7 @@ vmware-nsx-security doctor
 | Storage: iSCSI, vSAN, datastores | **vmware-storage** |
 | Tanzu Kubernetes | **vmware-vks** |
 | Multi-step workflows with approval | **vmware-pilot** |
+| Load balancer, AVI, ALB, AKO, Ingress | **vmware-avi** (`uv tool install vmware-avi`) |
 | Audit log query | **vmware-policy** (`vmware-audit` CLI) |
 
 ## Common Workflows
@@ -132,6 +134,14 @@ vmware-nsx-security policy list
 vmware-nsx-security policy list --target nsx-prod
 vmware-nsx-security group list --target nsx-lab
 ```
+
+## Usage Mode
+
+| Scenario | Recommended | Why |
+|----------|:-----------:|-----|
+| Local/small models (Ollama, Qwen) | **CLI** | ~2K tokens vs ~8K for MCP |
+| Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
+| Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
 ## MCP Tools (20)
 
