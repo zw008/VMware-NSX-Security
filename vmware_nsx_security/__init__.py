@@ -1,3 +1,3 @@
 """VMware NSX DFW microsegmentation and security management."""
 
-__version__ = "1.4.4"
+__version__ = "1.4.5"
