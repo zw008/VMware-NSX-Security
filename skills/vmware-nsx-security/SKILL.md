@@ -110,7 +110,7 @@ vmware-nsx-security doctor
 
 1. Get source VM's logical port ID (from `vmware-nsx troubleshoot vm-segment`):
    ```bash
-   vmware-nsx-security traceflow run <lport-id> --src-ip 10.0.1.5 --dst-ip 10.0.2.10 --proto TCP --dst-port 443
+   vmware-nsx-security traceflow run <lport-id> --src-ip &lt;src-ip&gt; --dst-ip &lt;dst-ip&gt; --proto TCP --dst-port 443
    ```
 2. Check for DFW hits and drop reasons in the output.
 
@@ -194,7 +194,7 @@ vmware-nsx-security tag list <vm-display-name>
 vmware-nsx-security tag apply <vm-external-id> --scope env --value production [--dry-run]
 
 # Traceflow
-vmware-nsx-security traceflow run <lport-id> --src-ip 10.0.1.5 --dst-ip 10.0.2.10
+vmware-nsx-security traceflow run <lport-id> --src-ip &lt;src-ip&gt; --dst-ip &lt;dst-ip&gt;
 
 # IDPS
 vmware-nsx-security idps profiles
@@ -260,7 +260,8 @@ mkdir -p ~/.vmware-nsx-security
 cp config.example.yaml ~/.vmware-nsx-security/config.yaml
 # Edit config.yaml with your NSX Manager targets
 
-echo "VMWARE_NSX_SECURITY_NSX_PROD_PASSWORD=your_password" > ~/.vmware-nsx-security/.env
+# Add to ~/.vmware-nsx-security/.env (create if missing, chmod 600):
+# VMWARE_NSX_SECURITY_NSX_PROD_PASSWORD=<your-password>
 chmod 600 ~/.vmware-nsx-security/.env
 
 vmware-nsx-security doctor
