@@ -171,5 +171,5 @@ Both `vmware-nsx` and `vmware-nsx-security` can point to the same NSX Manager ho
 - `config.yaml` should be readable only by your user: `chmod 600 ~/.vmware-nsx-security/config.yaml`
 - `.env` must be `chmod 600` — the doctor check warns if it is too permissive
 - Use a dedicated read/write NSX account for security operations, not the global `admin` superuser
-- Audit logs are written to `~/.vmware-nsx-security/audit.log` (JSON Lines, append-only)
+- Audit logs are written to `~/.vmware/audit.db` (SQLite WAL mode, via vmware-policy)
 - The MCP server uses stdio transport — it never opens a network port; it is started on-demand by your AI agent
