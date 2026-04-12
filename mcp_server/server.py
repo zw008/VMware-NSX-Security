@@ -84,7 +84,7 @@ def _get_connection(target: str | None = None) -> Any:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_dfw_policies(target: str | None = None) -> list[dict]:
-    """List all DFW security policies in the default domain.
+    """[READ] List all DFW security policies in the default domain.
 
     Returns each policy's id, display_name, category, sequence_number,
     stateful flag, and rule count.
@@ -101,7 +101,7 @@ def list_dfw_policies(target: str | None = None) -> list[dict]:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
-    """Get full details of a single DFW security policy.
+    """[READ] Get full details of a single DFW security policy.
 
     Args:
         policy_id: Policy identifier (e.g. 'app-tier-policy').
@@ -116,7 +116,7 @@ def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
-    """List all rules in a DFW security policy.
+    """[READ] List all rules in a DFW security policy.
 
     Returns each rule's id, display_name, action, sources, destinations,
     services, direction, disabled flag, and sequence number.
@@ -138,7 +138,7 @@ def get_dfw_rule_stats(
     rule_id: str,
     target: str | None = None,
 ) -> dict:
-    """Get packet/byte hit-count statistics for a DFW rule.
+    """[READ] Get packet/byte hit-count statistics for a DFW rule.
 
     Returns packet_count, byte_count, session_count, and population_count
     (number of hosts where the rule is realised).
@@ -170,7 +170,7 @@ def create_dfw_policy(
     description: str = "",
     target: str | None = None,
 ) -> dict:
-    """Create a new DFW security policy.
+    """[WRITE] Create a new DFW security policy.
 
     Args:
         policy_id: Unique policy ID (alphanumeric, hyphens, underscores).
@@ -210,7 +210,7 @@ def update_dfw_policy(
     stateful: bool | None = None,
     target: str | None = None,
 ) -> dict:
-    """Partially update a DFW security policy (PATCH — only provided fields change).
+    """[WRITE] Partially update a DFW security policy (PATCH — only provided fields change).
 
     Args:
         policy_id: ID of the policy to update.
@@ -240,7 +240,7 @@ def update_dfw_policy(
 @mcp.tool()
 @vmware_tool(risk_level="high")
 def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
-    """Delete a DFW security policy.
+    """[WRITE] Delete a DFW security policy.
 
     Raises ValueError if the policy still contains active rules.
     Delete all rules in the policy first before deleting the policy itself.
@@ -286,7 +286,7 @@ def create_dfw_rule(
     description: str = "",
     target: str | None = None,
 ) -> dict:
-    """Create a DFW rule under the specified policy.
+    """[WRITE] Create a DFW rule under the specified policy.
 
     Args:
         policy_id: Parent policy identifier.
@@ -346,7 +346,7 @@ def update_dfw_rule(
     description: str | None = None,
     target: str | None = None,
 ) -> dict:
-    """Partially update a DFW rule (PATCH — only provided fields change).
+    """[WRITE] Partially update a DFW rule (PATCH — only provided fields change).
 
     Args:
         policy_id: Parent policy identifier.
@@ -384,7 +384,7 @@ def update_dfw_rule(
 @mcp.tool()
 @vmware_tool(risk_level="high")
 def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> dict:
-    """Delete a DFW rule from a policy.
+    """[WRITE] Delete a DFW rule from a policy.
 
     Args:
         policy_id: Parent policy identifier.
@@ -412,7 +412,7 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> 
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_groups(target: str | None = None) -> list[dict]:
-    """List all NSX security groups in the default domain.
+    """[READ] List all NSX security groups in the default domain.
 
     Returns each group's id, display_name, description, and expression count.
 
@@ -428,7 +428,7 @@ def list_groups(target: str | None = None) -> list[dict]:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def get_group(group_id: str, target: str | None = None) -> dict:
-    """Get details of a security group including membership criteria and effective members.
+    """[READ] Get details of a security group including membership criteria and effective members.
 
     Returns expression rules and up to 50 effective VirtualMachine members.
 
@@ -459,7 +459,7 @@ def create_group(
     segment_paths: list[str] | None = None,
     target: str | None = None,
 ) -> dict:
-    """Create an NSX security group with optional membership criteria.
+    """[WRITE] Create an NSX security group with optional membership criteria.
 
     Membership criteria are ANDed together when multiple are provided:
     - tag_scope / tag_value: include VMs matching the NSX tag
@@ -498,7 +498,7 @@ def create_group(
 @mcp.tool()
 @vmware_tool(risk_level="high")
 def delete_group(group_id: str, target: str | None = None) -> dict:
-    """Delete an NSX security group.
+    """[WRITE] Delete an NSX security group.
 
     Raises ValueError if the group is referenced by any DFW policy rule
     as a source or destination group.
@@ -528,7 +528,7 @@ def delete_group(group_id: str, target: str | None = None) -> dict:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
-    """List all NSX tags applied to a virtual machine.
+    """[READ] List all NSX tags applied to a virtual machine.
 
     Looks up the VM by display name and returns all scope/value tag pairs.
     Raises KeyError if no VM is found, ValueError if multiple VMs match.
@@ -556,7 +556,7 @@ def apply_vm_tag(
     tag_value: str,
     target: str | None = None,
 ) -> dict:
-    """Apply an NSX tag to a virtual machine.
+    """[WRITE] Apply an NSX tag to a virtual machine.
 
     Existing tags on the VM are preserved — this operation is additive.
     Use list_vm_tags to get the vm_id (external_id) first.
@@ -599,7 +599,7 @@ def run_traceflow(
     timeout_seconds: int = 20,
     target: str | None = None,
 ) -> dict:
-    """Run a Traceflow to trace a packet's path through the NSX overlay.
+    """[WRITE] Run a Traceflow to trace a packet's path through the NSX overlay.
 
     Injects a synthetic probe packet from the source logical port and
     returns hop-by-hop observations including DFW rule hits and drop reasons.
@@ -628,7 +628,7 @@ def run_traceflow(
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
-    """Get the current status and observations of an existing Traceflow.
+    """[READ] Get the current status and observations of an existing Traceflow.
 
     Use this to check a previously initiated traceflow without waiting.
 
@@ -650,7 +650,7 @@ def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_idps_profiles(target: str | None = None) -> list[dict]:
-    """List all IDPS profiles configured in NSX.
+    """[READ] List all IDPS profiles configured in NSX.
 
     Returns each profile's id, display_name, severity, criteria,
     and count of overridden signatures.
@@ -667,7 +667,7 @@ def list_idps_profiles(target: str | None = None) -> list[dict]:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def get_idps_status(target: str | None = None) -> dict:
-    """Get the IDPS engine status across all transport nodes.
+    """[READ] Get the IDPS engine status across all transport nodes.
 
     Returns global_status (ENABLED/DISABLED), signature_version,
     last_signature_update, and per-node status counts.

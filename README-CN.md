@@ -1,5 +1,9 @@
 # VMware NSX Security
 
+> **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> 本项目由 VMware 工程师维护的社区项目，非 VMware 官方产品。
+> VMware 官方开发者工具请访问 [developer.broadcom.com](https://developer.broadcom.com)。
+
 VMware NSX DFW 微分段与安全管理 MCP skill — 20 个工具，涵盖分布式防火墙策略与规则、安全组、VM 标签、Traceflow 数据包追踪和 IDPS。
 
 > **配套 skill**：[vmware-nsx](https://github.com/zw008/VMware-NSX)（网络）、[vmware-aiops](https://github.com/zw008/VMware-AIops)（VM 生命周期）、[vmware-monitor](https://github.com/zw008/VMware-Monitor)（监控）

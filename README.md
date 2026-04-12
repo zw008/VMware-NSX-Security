@@ -1,5 +1,9 @@
 # VMware NSX Security
 
+> **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> This is a community-driven project by a VMware engineer, not an official VMware product.
+> For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
+
 VMware NSX DFW microsegmentation and security MCP skill — 20 tools for distributed firewall policies/rules, security groups, VM tags, Traceflow packet tracing, and IDPS.
 
 > **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (monitoring)
