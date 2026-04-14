@@ -1,3 +1,7 @@
+## v1.5.4 (2026-04-14)
+
+- Security: bump pytest 9.0.2→9.0.3 (CVE-2025-71176, insecure tmpdir handling)
+
 ## v1.5.0 (2026-04-12)
 
 ### Anthropic Best Practices Integration
