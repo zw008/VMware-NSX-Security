@@ -81,7 +81,7 @@ def _get_connection(target: str | None = None) -> Any:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_dfw_policies(target: str | None = None) -> list[dict]:
     """[READ] List all DFW security policies in the default domain.
@@ -92,13 +92,16 @@ def list_dfw_policies(target: str | None = None) -> list[dict]:
     Args:
         target: Optional NSX Manager target name from config. Uses default if omitted.
     """
-    from vmware_nsx_security.ops.dfw_policy import list_dfw_policies as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import list_dfw_policies as _fn
 
-    client = _get_connection(target)
-    return _fn(client)
+        client = _get_connection(target)
+        return _fn(client)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
     """[READ] Get full details of a single DFW security policy.
@@ -107,13 +110,16 @@ def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
         policy_id: Policy identifier (e.g. 'app-tier-policy').
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_policy import get_dfw_policy as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import get_dfw_policy as _fn
 
-    client = _get_connection(target)
-    return _fn(client, policy_id)
+        client = _get_connection(target)
+        return _fn(client, policy_id)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
     """[READ] List all rules in a DFW security policy.
@@ -125,13 +131,16 @@ def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
         policy_id: Parent policy identifier.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_policy import list_dfw_rules as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import list_dfw_rules as _fn
 
-    client = _get_connection(target)
-    return _fn(client, policy_id)
+        client = _get_connection(target)
+        return _fn(client, policy_id)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_dfw_rule_stats(
     policy_id: str,
@@ -148,10 +157,13 @@ def get_dfw_rule_stats(
         rule_id: Rule identifier.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_rules import get_dfw_rule_stats as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_rules import get_dfw_rule_stats as _fn
 
-    client = _get_connection(target)
-    return _fn(client, policy_id, rule_id)
+        client = _get_connection(target)
+        return _fn(client, policy_id, rule_id)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -159,7 +171,7 @@ def get_dfw_rule_stats(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def create_dfw_policy(
     policy_id: str,
@@ -182,25 +194,28 @@ def create_dfw_policy(
         description: Optional description.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_policy import create_dfw_policy as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import create_dfw_policy as _fn
 
-    client = _get_connection(target)
-    result = _fn(
-        client, policy_id, display_name,
-        category=category, sequence_number=sequence_number,
-        stateful=stateful, description=description,
-    )
-    _audit.log(
-        target=target or "default",
-        operation="create_dfw_policy",
-        resource=policy_id,
-        parameters={"display_name": display_name, "category": category},
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(
+            client, policy_id, display_name,
+            category=category, sequence_number=sequence_number,
+            stateful=stateful, description=description,
+        )
+        _audit.log(
+            target=target or "default",
+            operation="create_dfw_policy",
+            resource=policy_id,
+            parameters={"display_name": display_name, "category": category},
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def update_dfw_policy(
     policy_id: str,
@@ -220,24 +235,27 @@ def update_dfw_policy(
         stateful: New stateful flag (optional).
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_policy import update_dfw_policy as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import update_dfw_policy as _fn
 
-    client = _get_connection(target)
-    result = _fn(
-        client, policy_id,
-        display_name=display_name, description=description,
-        sequence_number=sequence_number, stateful=stateful,
-    )
-    _audit.log(
-        target=target or "default",
-        operation="update_dfw_policy",
-        resource=policy_id,
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(
+            client, policy_id,
+            display_name=display_name, description=description,
+            sequence_number=sequence_number, stateful=stateful,
+        )
+        _audit.log(
+            target=target or "default",
+            operation="update_dfw_policy",
+            resource=policy_id,
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
     """[WRITE] Delete a DFW security policy.
@@ -249,17 +267,20 @@ def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
         policy_id: ID of the policy to delete.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_policy import delete_dfw_policy as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_policy import delete_dfw_policy as _fn
 
-    client = _get_connection(target)
-    result = _fn(client, policy_id)
-    _audit.log(
-        target=target or "default",
-        operation="delete_dfw_policy",
-        resource=policy_id,
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(client, policy_id)
+        _audit.log(
+            target=target or "default",
+            operation="delete_dfw_policy",
+            resource=policy_id,
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -267,7 +288,7 @@ def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def create_dfw_rule(
     policy_id: str,
@@ -310,27 +331,30 @@ def create_dfw_rule(
         description: Optional description.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_rules import create_dfw_rule as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_rules import create_dfw_rule as _fn
 
-    client = _get_connection(target)
-    result = _fn(
-        client, policy_id, rule_id, display_name,
-        action=action, sources=sources, destinations=destinations,
-        services=services, scope=scope, direction=direction,
-        ip_protocol=ip_protocol, logged=logged, disabled=disabled,
-        sequence_number=sequence_number, description=description,
-    )
-    _audit.log(
-        target=target or "default",
-        operation="create_dfw_rule",
-        resource=f"{policy_id}/{rule_id}",
-        parameters={"action": action, "display_name": display_name},
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(
+            client, policy_id, rule_id, display_name,
+            action=action, sources=sources, destinations=destinations,
+            services=services, scope=scope, direction=direction,
+            ip_protocol=ip_protocol, logged=logged, disabled=disabled,
+            sequence_number=sequence_number, description=description,
+        )
+        _audit.log(
+            target=target or "default",
+            operation="create_dfw_rule",
+            resource=f"{policy_id}/{rule_id}",
+            parameters={"action": action, "display_name": display_name},
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def update_dfw_rule(
     policy_id: str,
@@ -362,26 +386,29 @@ def update_dfw_rule(
         description: New description (optional).
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_rules import update_dfw_rule as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_rules import update_dfw_rule as _fn
 
-    client = _get_connection(target)
-    result = _fn(
-        client, policy_id, rule_id,
-        display_name=display_name, action=action,
-        sources=sources, destinations=destinations,
-        services=services, logged=logged, disabled=disabled,
-        sequence_number=sequence_number, description=description,
-    )
-    _audit.log(
-        target=target or "default",
-        operation="update_dfw_rule",
-        resource=f"{policy_id}/{rule_id}",
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(
+            client, policy_id, rule_id,
+            display_name=display_name, action=action,
+            sources=sources, destinations=destinations,
+            services=services, logged=logged, disabled=disabled,
+            sequence_number=sequence_number, description=description,
+        )
+        _audit.log(
+            target=target or "default",
+            operation="update_dfw_rule",
+            resource=f"{policy_id}/{rule_id}",
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> dict:
     """[WRITE] Delete a DFW rule from a policy.
@@ -391,17 +418,20 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> 
         rule_id: ID of the rule to delete.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.dfw_rules import delete_dfw_rule as _fn
+    try:
+        from vmware_nsx_security.ops.dfw_rules import delete_dfw_rule as _fn
 
-    client = _get_connection(target)
-    result = _fn(client, policy_id, rule_id)
-    _audit.log(
-        target=target or "default",
-        operation="delete_dfw_rule",
-        resource=f"{policy_id}/{rule_id}",
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(client, policy_id, rule_id)
+        _audit.log(
+            target=target or "default",
+            operation="delete_dfw_rule",
+            resource=f"{policy_id}/{rule_id}",
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -409,7 +439,7 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> 
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_groups(target: str | None = None) -> list[dict]:
     """[READ] List all NSX security groups in the default domain.
@@ -419,13 +449,16 @@ def list_groups(target: str | None = None) -> list[dict]:
     Args:
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.security_group import list_groups as _fn
+    try:
+        from vmware_nsx_security.ops.security_group import list_groups as _fn
 
-    client = _get_connection(target)
-    return _fn(client)
+        client = _get_connection(target)
+        return _fn(client)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_group(group_id: str, target: str | None = None) -> dict:
     """[READ] Get details of a security group including membership criteria and effective members.
@@ -436,10 +469,13 @@ def get_group(group_id: str, target: str | None = None) -> dict:
         group_id: Group identifier (e.g. 'web-tier-vms').
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.security_group import get_group as _fn
+    try:
+        from vmware_nsx_security.ops.security_group import get_group as _fn
 
-    client = _get_connection(target)
-    return _fn(client, group_id)
+        client = _get_connection(target)
+        return _fn(client, group_id)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -447,7 +483,7 @@ def get_group(group_id: str, target: str | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def create_group(
     group_id: str,
@@ -476,26 +512,29 @@ def create_group(
         segment_paths: List of NSX segment policy paths.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.security_group import create_group as _fn
+    try:
+        from vmware_nsx_security.ops.security_group import create_group as _fn
 
-    client = _get_connection(target)
-    result = _fn(
-        client, group_id, display_name,
-        description=description,
-        tag_scope=tag_scope, tag_value=tag_value,
-        ip_addresses=ip_addresses, segment_paths=segment_paths,
-    )
-    _audit.log(
-        target=target or "default",
-        operation="create_group",
-        resource=group_id,
-        parameters={"display_name": display_name},
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(
+            client, group_id, display_name,
+            description=description,
+            tag_scope=tag_scope, tag_value=tag_value,
+            ip_addresses=ip_addresses, segment_paths=segment_paths,
+        )
+        _audit.log(
+            target=target or "default",
+            operation="create_group",
+            resource=group_id,
+            parameters={"display_name": display_name},
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def delete_group(group_id: str, target: str | None = None) -> dict:
     """[WRITE] Delete an NSX security group.
@@ -507,17 +546,20 @@ def delete_group(group_id: str, target: str | None = None) -> dict:
         group_id: ID of the group to delete.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.security_group import delete_group as _fn
+    try:
+        from vmware_nsx_security.ops.security_group import delete_group as _fn
 
-    client = _get_connection(target)
-    result = _fn(client, group_id)
-    _audit.log(
-        target=target or "default",
-        operation="delete_group",
-        resource=group_id,
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(client, group_id)
+        _audit.log(
+            target=target or "default",
+            operation="delete_group",
+            resource=group_id,
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -525,7 +567,7 @@ def delete_group(group_id: str, target: str | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
     """[READ] List all NSX tags applied to a virtual machine.
@@ -537,10 +579,13 @@ def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
         vm_display_name: Display name of the virtual machine.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.tags import list_vm_tags as _fn
+    try:
+        from vmware_nsx_security.ops.tags import list_vm_tags as _fn
 
-    client = _get_connection(target)
-    return _fn(client, vm_display_name)
+        client = _get_connection(target)
+        return _fn(client, vm_display_name)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -548,7 +593,7 @@ def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def apply_vm_tag(
     vm_id: str,
@@ -567,18 +612,21 @@ def apply_vm_tag(
         tag_value: Tag value string (e.g. 'production', 'web').
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.tags import apply_vm_tag as _fn
+    try:
+        from vmware_nsx_security.ops.tags import apply_vm_tag as _fn
 
-    client = _get_connection(target)
-    result = _fn(client, vm_id, tag_scope, tag_value)
-    _audit.log(
-        target=target or "default",
-        operation="apply_vm_tag",
-        resource=vm_id,
-        parameters={"scope": tag_scope, "tag": tag_value},
-        result="ok",
-    )
-    return result
+        client = _get_connection(target)
+        result = _fn(client, vm_id, tag_scope, tag_value)
+        _audit.log(
+            target=target or "default",
+            operation="apply_vm_tag",
+            resource=vm_id,
+            parameters={"scope": tag_scope, "tag": tag_value},
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -586,7 +634,7 @@ def apply_vm_tag(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def run_traceflow(
     src_lport_id: str,
@@ -615,17 +663,20 @@ def run_traceflow(
         timeout_seconds: Maximum seconds to wait for completion (default: 20).
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.traceflow import run_traceflow as _fn
+    try:
+        from vmware_nsx_security.ops.traceflow import run_traceflow as _fn
 
-    client = _get_connection(target)
-    return _fn(
-        client, src_lport_id, src_ip, dst_ip,
-        protocol=protocol, dst_port=dst_port,
-        src_port=src_port, ttl=ttl, timeout_seconds=timeout_seconds,
-    )
+        client = _get_connection(target)
+        return _fn(
+            client, src_lport_id, src_ip, dst_ip,
+            protocol=protocol, dst_port=dst_port,
+            src_port=src_port, ttl=ttl, timeout_seconds=timeout_seconds,
+        )
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
     """[READ] Get the current status and observations of an existing Traceflow.
@@ -636,10 +687,13 @@ def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
         traceflow_id: Traceflow ID from a previous run_traceflow call.
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.traceflow import get_traceflow_result as _fn
+    try:
+        from vmware_nsx_security.ops.traceflow import get_traceflow_result as _fn
 
-    client = _get_connection(target)
-    return _fn(client, traceflow_id)
+        client = _get_connection(target)
+        return _fn(client, traceflow_id)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -647,7 +701,7 @@ def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_idps_profiles(target: str | None = None) -> list[dict]:
     """[READ] List all IDPS profiles configured in NSX.
@@ -658,13 +712,16 @@ def list_idps_profiles(target: str | None = None) -> list[dict]:
     Args:
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.idps import list_idps_profiles as _fn
+    try:
+        from vmware_nsx_security.ops.idps import list_idps_profiles as _fn
 
-    client = _get_connection(target)
-    return _fn(client)
+        client = _get_connection(target)
+        return _fn(client)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_idps_status(target: str | None = None) -> dict:
     """[READ] Get the IDPS engine status across all transport nodes.
@@ -675,10 +732,13 @@ def get_idps_status(target: str | None = None) -> dict:
     Args:
         target: Optional NSX Manager target name from config.
     """
-    from vmware_nsx_security.ops.idps import get_idps_status as _fn
+    try:
+        from vmware_nsx_security.ops.idps import get_idps_status as _fn
 
-    client = _get_connection(target)
-    return _fn(client)
+        client = _get_connection(target)
+        return _fn(client)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
 
 
 # ---------------------------------------------------------------------------
