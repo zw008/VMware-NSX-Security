@@ -1,3 +1,9 @@
+## v1.5.5 (2026-04-15)
+
+- Fix: CRITICAL — missing `import re` in `ops/traceflow.py` caused `NameError` in traceflow operations
+- Fix: 403 auth failure for NSX passwords containing special chars (!, ), etc.) — switched /api/session/create from Basic Auth to form-body credentials (j_username/j_password), same fix as NSX v1.4.9
+- Align with VMware skill family v1.5.5
+
 ## v1.5.4 (2026-04-14)
 
 - Security: bump pytest 9.0.2→9.0.3 (CVE-2025-71176, insecure tmpdir handling)
