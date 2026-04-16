@@ -1,3 +1,8 @@
+## v1.5.10 (2026-04-16)
+
+- Security: bump python-multipart 0.0.22→0.0.26 (DoS via large multipart preamble/epilogue)
+- Align with VMware skill family v1.5.10
+
 ## v1.5.8 (2026-04-15)
 
 - Fix: SSL warning suppression scope — replaced process-global `warnings.filterwarnings()` with class-targeted `urllib3.disable_warnings(InsecureRequestWarning)`, which no longer accidentally suppresses SSL warnings from other libraries in the same process.
