@@ -1,3 +1,7 @@
+## v1.5.14 (2026-04-21)
+
+- Align with VMware skill family v1.5.14 (code review follow-up fixes by @yjs-2026)
+
 ## v1.5.13 (2026-04-21)
 
 **Bug fixes from code review 2026-04-20**
