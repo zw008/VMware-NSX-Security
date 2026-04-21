@@ -176,7 +176,7 @@ def get_traceflow_result(client: NsxClient, traceflow_id: str) -> dict:
     Returns:
         Dict with traceflow_id, status, and observations list.
     """
-    if not re.match(r"^[\w\-]+$", traceflow_id):
+    if not re.match(r"^[\w\-\.]+$", traceflow_id):
         raise ValueError(f"Invalid traceflow_id: '{traceflow_id}'")
 
     tf_data = client.get(f"/api/v1/traceflows/{traceflow_id}")

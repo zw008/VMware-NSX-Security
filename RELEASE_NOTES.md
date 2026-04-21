@@ -1,3 +1,9 @@
+## v1.5.13 (2026-04-21)
+
+**Bug fixes from code review 2026-04-20**
+
+- **fix:** `traceflow.py` — ID validation regex now allows dots (`^[\w\-\.]+$`), consistent with all other `_validate_id()` in the codebase
+
 ## v1.5.12 (2026-04-17)
 
 - Align with VMware skill family v1.5.12 (security & bug fixes from code review by @yjs-2026)
