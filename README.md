@@ -38,13 +38,24 @@ vmware-nsx-security doctor
 
 ## MCP Server Setup
 
+**After `uv tool install vmware-nsx-security`, start the MCP server with one command** (v1.5.15+):
+
+```bash
+# Recommended — single command, no network re-resolve
+vmware-nsx-security mcp
+
+# With a custom config path
+VMWARE_NSX_SECURITY_CONFIG=/path/to/config.yaml vmware-nsx-security mcp
+```
+
 Add to `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "vmware-nsx-security": {
-      "command": "vmware-nsx-security-mcp",
+      "command": "vmware-nsx-security",
+      "args": ["mcp"],
       "env": {
         "VMWARE_NSX_SECURITY_CONFIG": "~/.vmware-nsx-security/config.yaml"
       }
@@ -52,6 +63,22 @@ Add to `~/.claude.json`:
   }
 }
 ```
+
+<details>
+<summary>Alternative: uvx (no install) or legacy entry point</summary>
+
+```bash
+# Run without installing (requires PyPI access each launch)
+uvx --from vmware-nsx-security vmware-nsx-security mcp
+
+# Legacy entry point (still works, kept for backward compatibility)
+vmware-nsx-security-mcp
+```
+
+> **Behind a corporate TLS proxy?** uvx may fail with `invalid peer certificate: UnknownIssuer`.
+> Use the recommended `vmware-nsx-security mcp` form above (no network needed), or set `UV_NATIVE_TLS=true`.
+
+</details>
 
 ## Common Workflows
 

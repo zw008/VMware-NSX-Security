@@ -38,13 +38,24 @@ vmware-nsx-security doctor
 
 ## MCP 服务器配置
 
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-nsx-security` 后，**一条命令启动 MCP**：
+
+```bash
+# 推荐 — 单命令，无网络依赖
+vmware-nsx-security mcp
+
+# 指定配置路径
+VMWARE_NSX_SECURITY_CONFIG=/path/to/config.yaml vmware-nsx-security mcp
+```
+
 添加到 `~/.claude.json`：
 
 ```json
 {
   "mcpServers": {
     "vmware-nsx-security": {
-      "command": "vmware-nsx-security-mcp",
+      "command": "vmware-nsx-security",
+      "args": ["mcp"],
       "env": {
         "VMWARE_NSX_SECURITY_CONFIG": "~/.vmware-nsx-security/config.yaml"
       }
@@ -52,6 +63,22 @@ vmware-nsx-security doctor
   }
 }
 ```
+
+<details>
+<summary>备选方案：uvx（不安装）或 legacy 入口</summary>
+
+```bash
+# 不想安装，临时运行（每次需要联网 resolve 依赖）
+uvx --from vmware-nsx-security vmware-nsx-security mcp
+
+# 旧 entry point（仍可用，向后兼容）
+vmware-nsx-security-mcp
+```
+
+> **公司 TLS 代理网络下？** uvx 可能报 `invalid peer certificate: UnknownIssuer`。
+> 推荐使用上面的 `vmware-nsx-security mcp`（无需联网），或 `export UV_NATIVE_TLS=true`。
+
+</details>
 
 ## 常见操作
 

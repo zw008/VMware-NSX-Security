@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "vmware-nsx-security": {
-      "command": "vmware-nsx-security-mcp",
+      "command": "vmware-nsx-security",
+      "args": ["mcp"],
       "env": {
         "VMWARE_NSX_SECURITY_CONFIG": "~/.vmware-nsx-security/config.yaml"
       }

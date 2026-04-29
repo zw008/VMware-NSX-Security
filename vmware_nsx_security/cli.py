@@ -527,5 +527,19 @@ def doctor(
     raise typer.Exit(0 if ok else 1)
 
 
+@app.command("mcp")
+def mcp_cmd() -> None:
+    """Start the MCP server (stdio transport).
+
+    Single-command entry point for MCP clients:
+        vmware-nsx-security mcp
+
+    Equivalent to the legacy `vmware-nsx-security-mcp` console script.
+    """
+    from mcp_server.server import main as _mcp_main
+
+    _mcp_main()
+
+
 if __name__ == "__main__":
     app()

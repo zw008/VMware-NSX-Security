@@ -248,6 +248,12 @@ Password variable convention: `VMWARE_NSX_SECURITY_<TARGET_UPPER>_PASSWORD`
 where hyphens are replaced by underscores. For target `nsx-prod`:
 `VMWARE_NSX_SECURITY_NSX_PROD_PASSWORD`. Check `~/.vmware-nsx-security/.env`.
 
+### `invalid peer certificate: UnknownIssuer` (uvx)
+
+Corporate TLS proxy not trusted by uv's bundled cert store. Use the v1.5.15+
+single-command form `vmware-nsx-security mcp` (no PyPI re-resolve), or
+`export UV_NATIVE_TLS=true` to make uv use the system cert store.
+
 ## Safety
 
 - **Audit logging**: All write operations logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result

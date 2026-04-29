@@ -95,7 +95,8 @@ Add to `~/.claude.json` (or `.claude.json` in your project):
 {
   "mcpServers": {
     "vmware-nsx-security": {
-      "command": "vmware-nsx-security-mcp",
+      "command": "vmware-nsx-security",
+      "args": ["mcp"],
       "env": {
         "VMWARE_NSX_SECURITY_CONFIG": "~/.vmware-nsx-security/config.yaml"
       }
@@ -111,7 +112,8 @@ In Cursor Settings → MCP Servers:
 ```json
 {
   "vmware-nsx-security": {
-    "command": "vmware-nsx-security-mcp",
+    "command": "vmware-nsx-security",
+    "args": ["mcp"],
     "env": {
       "VMWARE_NSX_SECURITY_CONFIG": "${HOME}/.vmware-nsx-security/config.yaml"
     }
@@ -125,7 +127,8 @@ In Cursor Settings → MCP Servers:
 {
   "mcpServers": {
     "vmware-nsx-security": {
-      "command": "vmware-nsx-security-mcp",
+      "command": "vmware-nsx-security",
+      "args": ["mcp"],
       "env": {
         "VMWARE_NSX_SECURITY_CONFIG": "~/.vmware-nsx-security/config.yaml"
       }
@@ -133,6 +136,11 @@ In Cursor Settings → MCP Servers:
   }
 }
 ```
+
+> v1.5.15+ recommends the single-command form `vmware-nsx-security mcp`. Pre-1.5.15 used
+> `uvx --from vmware-nsx-security vmware-nsx-security-mcp`, which still works but re-resolves
+> from PyPI on each launch and breaks behind corporate TLS proxies. The legacy
+> `vmware-nsx-security-mcp` entry point is also kept for backward compatibility.
 
 ## 7. Docker (Optional)
 
