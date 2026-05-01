@@ -85,41 +85,36 @@ vmware-nsx-security doctor
 
 ### Implement App-Tier Microsegmentation
 
-1. Create a security group for web VMs based on NSX tag:
-   ```bash
-   vmware-nsx-security group create web-vms --name "Web Tier VMs" --tag-scope tier --tag-value web
-   ```
-2. Create a security group for app VMs:
-   ```bash
-   vmware-nsx-security group create app-vms --name "App Tier VMs" --tag-scope tier --tag-value app
-   ```
-3. Create a DFW policy:
-   ```bash
-   vmware-nsx-security policy create app-microseg --name "App Microsegmentation" --category Application
-   ```
-4. List rules to verify (empty initially):
-   ```bash
-   vmware-nsx-security rule list app-microseg
-   ```
+**Pre-flight (judgment — DFW changes can lock everyone out)**:
+- **Default-allow first**: the very first rule in any new policy must be ALLOW for management traffic (DNS, NTP, vCenter, SSH from jumphost). Without it, the moment you add a default-deny you blackhole your own access.
+- Tag inventory: confirm the VMs you intend to protect actually carry the tag (`tag list <vm>`). A group based on a non-existent tag matches zero VMs — the policy will appear "applied" but enforce nothing.
+- Category choice: `Application` for app-tier microseg (rules evaluated late, after Infrastructure rules pass through). Using `Emergency` for routine rules will starve real incident-response capacity.
+- Stateless? Default to stateful — NSX DFW is stateful and almost no rule should be stateless. Stateless = both directions must be explicitly allowed.
+- Always start with **logging enabled** on new rules; disable later once verified. Silent drops are the worst kind of bug.
+
+**Steps**:
+1. Tag the VMs first (see workflow below) — empty groups = no enforcement
+2. `group create web-vms --tag-scope tier --tag-value web` (and `app-vms`)
+3. `policy create app-microseg --category Application`
+4. Add rules in order: ALLOW management → ALLOW intra-tier → ALLOW web→app on app-port → DROP any-any with logging
+5. Verify with traceflow (see below) **before** enabling default-deny
 
 ### Apply NSX Tags to VMs
 
-1. Find VM and its tags:
-   ```bash
-   vmware-nsx-security tag list my-web-vm-01
-   ```
-2. Get the VM external ID from the output, then apply tag:
-   ```bash
-   vmware-nsx-security tag apply <vm-external-id> --scope tier --value web
-   ```
+**Judgment**: tags drive group membership which drives DFW enforcement. A misspelled tag silently excludes a VM from protection. Always re-list after applying.
+
+1. `tag list my-web-vm-01` → record the VM external ID, also see what tags already exist (avoid duplicates / typo collisions)
+2. `tag apply <vm-external-id> --scope tier --value web`
+3. **Verify**: `tag list my-web-vm-01` again → confirm the new tag is present AND no unexpected ones
 
 ### Trace a Packet with Traceflow
 
-1. Get source VM's logical port ID (from `vmware-nsx troubleshoot vm-segment`):
-   ```bash
-   vmware-nsx-security traceflow run <lport-id> --src-ip &lt;src-ip&gt; --dst-ip &lt;dst-ip&gt; --proto TCP --dst-port 443
-   ```
-2. Check for DFW hits and drop reasons in the output.
+**Judgment**: traceflow is your verification mechanism for any DFW change. Run it **before** enabling deny rules and **after** every rule modification. Don't trust "looks right in the UI."
+
+1. Get source VM's logical port ID via `vmware-nsx troubleshoot vm-segment`
+2. `traceflow run <lport-id> --src-ip <src> --dst-ip <dst> --proto TCP --dst-port <port>`
+3. Inspect the DFW hit chain: which rule matched, ALLOW or DROP, and at which transport node
+4. **Common failure**: rule matches at category Application but is shadowed by an earlier DROP at category Environment — read the trace top-to-bottom, not just the final verdict
 
 ### Check DFW Policy Hit Counts
 

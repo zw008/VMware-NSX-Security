@@ -176,6 +176,9 @@ Both `vmware-nsx` and `vmware-nsx-security` can point to the same NSX Manager ho
 
 ## Security Notes
 
+> **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "NSX" are trademarks of Broadcom.
+
+- **Source Code**: Fully open source at [github.com/zw008/VMware-NSX-Security](https://github.com/zw008/VMware-NSX-Security) (MIT). The `uv` installer fetches the `vmware-nsx-security` package from PyPI, which is built from this GitHub repository. We recommend reviewing the source code and commit history before deploying in production.
 - `config.yaml` should be readable only by your user: `chmod 600 ~/.vmware-nsx-security/config.yaml`
 - `.env` must be `chmod 600` — the doctor check warns if it is too permissive
 - Use a dedicated read/write NSX account for security operations, not the global `admin` superuser

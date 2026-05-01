@@ -1,5 +1,22 @@
 # VMware NSX Security — Capabilities Reference
 
+## Automation Level Reference
+
+Each operation is classified by autonomy level per the Enterprise Harness Engineering framework:
+
+| Level | Meaning | Agent autonomy | Examples in this skill |
+|:-:|---|---|---|
+| **L1** | Read-only, raw data | Always auto-run | `list_dfw_policies`, `get_dfw_rule`, `list_security_groups`, `list_services`, `traceflow_create`/`get`, IDS/IPS event queries |
+| **L2** | Read + analysis / recommendation | Always auto-run | DFW rule conflict detection, shadowed-rule analysis, security group reference graph, traceflow path interpretation |
+| **L3** | Single write — user must approve | Only after explicit confirmation; destructive ops require double-confirm + `--dry-run` | `create_dfw_policy`, `create_dfw_rule`, `delete_dfw_rule`, `create_security_group`, `delete_security_group`, IDS/IPS profile changes |
+| **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — staged microsegmentation rollouts, emergency-block playbooks)* |
+| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` | *(roadmap — candidates: orphaned-SG cleanup, expired temp-block rule removal)* |
+
+**Notes**:
+- L1/L2 tools are always safe for agents to call without confirmation.
+- L3 tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → double-confirm. DFW policy delete additionally checks for active rules; SG delete checks for references.
+- For Segment/Gateway/NAT (network plane) see [vmware-nsx](https://github.com/zw008/VMware-NSX).
+
 ## DFW Policy Categories
 
 NSX DFW policies are evaluated in category order (lower category = higher priority):
