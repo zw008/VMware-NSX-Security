@@ -27,7 +27,7 @@ compatibility: >
 VMware NSX DFW microsegmentation and security — 20 MCP tools for distributed firewall, security groups, VM tags, Traceflow, and IDPS.
 
 > Domain-focused security skill for NSX-T / NSX 4.x Policy API.
-> **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO).
+> **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/zw008/VMware-Harden) (compliance baselines).
 > | [vmware-pilot](../vmware-pilot/SKILL.md) (workflow orchestration) | [vmware-policy](../vmware-policy/SKILL.md) (audit/policy)
 
 ## What This Skill Does
@@ -78,6 +78,7 @@ vmware-nsx-security doctor
 | Storage: iSCSI, vSAN, datastores | **vmware-storage** |
 | Tanzu Kubernetes | **vmware-vks** |
 | Multi-step workflows with approval | **vmware-pilot** |
+| Compliance baselines (CIS / 等保 / PCI-DSS), drift detection, LLM remediation advisor | **vmware-harden** (`uv tool install vmware-harden`) |
 | Load balancer, AVI, ALB, AKO, Ingress | **vmware-avi** (`uv tool install vmware-avi`) |
 | Audit log query | **vmware-policy** (`vmware-audit` CLI) |
 
