@@ -1,3 +1,10 @@
+## v1.5.21 (2026-05-08)
+
+**Family alignment** — no source changes in this skill.
+
+- **deps:** Bumped `python-multipart` 0.0.26 → 0.0.27 (transitive, fixes GHSA HIGH DoS via unbounded multipart headers).
+- **align:** Tracks v1.5.21 family bump driven by vmware-monitor folder_path feature (community PR #11).
+
 ## v1.5.20 (2026-05-08)
 
 **Fix:** Added `<!-- mcp-name: io.github.zw008/vmware-nsx-security -->` marker to README.md so MCP Registry ownership validation passes. Without this marker the registry refused publish (HTTP 400, "PyPI package ownership validation failed"), leaving this skill missing from the official registry from v1.3.0 through v1.5.19.
