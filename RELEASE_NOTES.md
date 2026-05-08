@@ -1,3 +1,10 @@
+## v1.5.20 (2026-05-08)
+
+**Fix:** Added `<!-- mcp-name: io.github.zw008/vmware-nsx-security -->` marker to README.md so MCP Registry ownership validation passes. Without this marker the registry refused publish (HTTP 400, "PyPI package ownership validation failed"), leaving this skill missing from the official registry from v1.3.0 through v1.5.19.
+
+- **registry:** First-time publish of `vmware-nsx-security` to registry.modelcontextprotocol.io.
+- **align:** Family bumped 1.5.19 → 1.5.20 in lockstep.
+
 ## v1.5.19 (2026-05-06)
 
 **Family alignment** — no source changes in this skill.
