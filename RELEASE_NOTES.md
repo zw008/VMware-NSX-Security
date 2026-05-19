@@ -1,3 +1,12 @@
+## v1.5.23 (2026-05-19)
+
+**NSX 9 / VCF 9.0 / 9.1 compatibility declared.**
+
+- **docs:** README and `references/` now declare NSX 9.0 / 9.1 and VCF 9.0 / 9.1 as ✅ Full. DFW Policy / Security Group / Traceflow / IDS-IPS endpoints unchanged in NSX 9.
+- **docs:** Same NSX 9 caveats apply as in vmware-nsx (N-VDS removed → VDS 7.0+ required, bare-metal agent removed), but neither affects this skill's security tools.
+- **docs:** Added `Official Broadcom References` pointing to the [VMware NSX for Python SDK](https://developer.broadcom.com/sdks).
+- **align:** Family v1.5.23 — all 9 skills tracking VCF 9.0 / 9.1 compatibility declaration.
+
 ## v1.5.22 (2026-05-08)
 
 **Family alignment** — no source changes in this skill.

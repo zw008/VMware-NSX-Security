@@ -130,6 +130,22 @@ vmware-nsx-security traceflow run <src-lport-id> \
 | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
 | **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 18 | `uv tool install vmware-aria` |
 
+
+## Version Compatibility
+
+| NSX Version | Support | Notes |
+|-------------|---------|-------|
+| NSX 9.1 / VCF 9.1 | ✅ Full | DFW + Security Group + Traceflow + IDS/IPS via Policy API. VDS 7.0+ required (N-VDS removed in NSX 9). |
+| NSX 9.0 / VCF 9.0 | ✅ Full | Same as 9.1. Bare-metal NSX agent removed. |
+| NSX 4.x / VCF 5.x | ✅ Full | All features supported. |
+| NSX-T 3.2 / VCF 4.5 | ✅ Full | Policy API stable. |
+
+#### Official Broadcom References
+
+- **SDKs**: <https://developer.broadcom.com/sdks> — VMware NSX for Python SDK (future migration target)
+- **REST APIs**: <https://developer.broadcom.com/xapis> — NSX-T Data Center REST API
+- **CLI Tools**: <https://developer.broadcom.com/tools> — VCF PowerCLI 9.1
+
 ## License
 
 MIT
