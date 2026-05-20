@@ -537,9 +537,9 @@ def mcp_cmd() -> None:
     Equivalent to the legacy `vmware-nsx-security-mcp` console script.
     """
     import sys
-    if sys.version_info < (3, 11):
+    if sys.version_info < (3, 10):
         msg = (
-            f"ERROR: vmware-nsx-security MCP server requires Python >= 3.11 "
+            f"ERROR: vmware-nsx-security MCP server requires Python >= 3.10 "
             f"(got {sys.version_info.major}.{sys.version_info.minor}).\n"
             f"Interpreter: {sys.executable}\n"
             "Fix: uv python install 3.12 && "
