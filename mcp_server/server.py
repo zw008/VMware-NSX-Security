@@ -29,7 +29,6 @@ For NSX networking (segments, gateways, NAT) use vmware-nsx.
 For VM operations use vmware-aiops.
 """
 
-from __future__ import annotations
 
 import logging
 import os
