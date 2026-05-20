@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import vmware_tool
@@ -62,10 +62,10 @@ mcp = FastMCP(
 # Connection helper
 # ---------------------------------------------------------------------------
 
-_conn_mgr: ConnectionManager | None = None
+_conn_mgr: Optional[ConnectionManager] = None
 
 
-def _get_connection(target: str | None = None) -> Any:
+def _get_connection(target: Optional[str] = None) -> Any:
     """Return an NsxClient, lazily initialising the connection manager."""
     global _conn_mgr  # noqa: PLW0603
     if _conn_mgr is None:
@@ -83,7 +83,7 @@ def _get_connection(target: str | None = None) -> Any:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_dfw_policies(target: str | None = None) -> list[dict]:
+def list_dfw_policies(target: Optional[str] = None) -> list[dict]:
     """[READ] List all DFW security policies in the default domain.
 
     Returns each policy's id, display_name, category, sequence_number,
@@ -103,7 +103,7 @@ def list_dfw_policies(target: str | None = None) -> list[dict]:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
+def get_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
     """[READ] Get full details of a single DFW security policy.
 
     Args:
@@ -121,7 +121,7 @@ def get_dfw_policy(policy_id: str, target: str | None = None) -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
+def list_dfw_rules(policy_id: str, target: Optional[str] = None) -> list[dict]:
     """[READ] List all rules in a DFW security policy.
 
     Returns each rule's id, display_name, action, sources, destinations,
@@ -145,7 +145,7 @@ def list_dfw_rules(policy_id: str, target: str | None = None) -> list[dict]:
 def get_dfw_rule_stats(
     policy_id: str,
     rule_id: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[READ] Get packet/byte hit-count statistics for a DFW rule.
 
@@ -180,7 +180,7 @@ def create_dfw_policy(
     sequence_number: int = 10,
     stateful: bool = True,
     description: str = "",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Create a new DFW security policy.
 
@@ -219,11 +219,11 @@ def create_dfw_policy(
 @vmware_tool(risk_level="medium")
 def update_dfw_policy(
     policy_id: str,
-    display_name: str | None = None,
-    description: str | None = None,
-    sequence_number: int | None = None,
-    stateful: bool | None = None,
-    target: str | None = None,
+    display_name: Optional[str] = None,
+    description: Optional[str] = None,
+    sequence_number: Optional[int] = None,
+    stateful: Optional[bool] = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Partially update a DFW security policy (PATCH — only provided fields change).
 
@@ -257,7 +257,7 @@ def update_dfw_policy(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-def delete_dfw_policy(policy_id: str, target: str | None = None) -> dict:
+def delete_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Delete a DFW security policy.
 
     Raises ValueError if the policy still contains active rules.
@@ -295,17 +295,17 @@ def create_dfw_rule(
     rule_id: str,
     display_name: str,
     action: str = "ALLOW",
-    sources: list[str] | None = None,
-    destinations: list[str] | None = None,
-    services: list[str] | None = None,
-    scope: list[str] | None = None,
+    sources: Optional[list[str]] = None,
+    destinations: Optional[list[str]] = None,
+    services: Optional[list[str]] = None,
+    scope: Optional[list[str]] = None,
     direction: str = "IN_OUT",
     ip_protocol: str = "IPV4_IPV6",
     logged: bool = False,
     disabled: bool = False,
     sequence_number: int = 10,
     description: str = "",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Create a DFW rule under the specified policy.
 
@@ -359,16 +359,16 @@ def create_dfw_rule(
 def update_dfw_rule(
     policy_id: str,
     rule_id: str,
-    display_name: str | None = None,
-    action: str | None = None,
-    sources: list[str] | None = None,
-    destinations: list[str] | None = None,
-    services: list[str] | None = None,
-    logged: bool | None = None,
-    disabled: bool | None = None,
-    sequence_number: int | None = None,
-    description: str | None = None,
-    target: str | None = None,
+    display_name: Optional[str] = None,
+    action: Optional[str] = None,
+    sources: Optional[list[str]] = None,
+    destinations: Optional[list[str]] = None,
+    services: Optional[list[str]] = None,
+    logged: Optional[bool] = None,
+    disabled: Optional[bool] = None,
+    sequence_number: Optional[int] = None,
+    description: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Partially update a DFW rule (PATCH — only provided fields change).
 
@@ -410,7 +410,7 @@ def update_dfw_rule(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> dict:
+def delete_dfw_rule(policy_id: str, rule_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Delete a DFW rule from a policy.
 
     Args:
@@ -441,7 +441,7 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: str | None = None) -> 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_groups(target: str | None = None) -> list[dict]:
+def list_groups(target: Optional[str] = None) -> list[dict]:
     """[READ] List all NSX security groups in the default domain.
 
     Returns each group's id, display_name, description, and expression count.
@@ -460,7 +460,7 @@ def list_groups(target: str | None = None) -> list[dict]:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def get_group(group_id: str, target: str | None = None) -> dict:
+def get_group(group_id: str, target: Optional[str] = None) -> dict:
     """[READ] Get details of a security group including membership criteria and effective members.
 
     Returns expression rules and up to 50 effective VirtualMachine members.
@@ -489,11 +489,11 @@ def create_group(
     group_id: str,
     display_name: str,
     description: str = "",
-    tag_scope: str | None = None,
-    tag_value: str | None = None,
-    ip_addresses: list[str] | None = None,
-    segment_paths: list[str] | None = None,
-    target: str | None = None,
+    tag_scope: Optional[str] = None,
+    tag_value: Optional[str] = None,
+    ip_addresses: Optional[list[str]] = None,
+    segment_paths: Optional[list[str]] = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Create an NSX security group with optional membership criteria.
 
@@ -536,7 +536,7 @@ def create_group(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-def delete_group(group_id: str, target: str | None = None) -> dict:
+def delete_group(group_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Delete an NSX security group.
 
     Raises ValueError if the group is referenced by any DFW policy rule
@@ -569,7 +569,7 @@ def delete_group(group_id: str, target: str | None = None) -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_vm_tags(vm_display_name: str, target: str | None = None) -> dict:
+def list_vm_tags(vm_display_name: str, target: Optional[str] = None) -> dict:
     """[READ] List all NSX tags applied to a virtual machine.
 
     Looks up the VM by display name and returns all scope/value tag pairs.
@@ -599,7 +599,7 @@ def apply_vm_tag(
     vm_id: str,
     tag_scope: str,
     tag_value: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Apply an NSX tag to a virtual machine.
 
@@ -645,7 +645,7 @@ def run_traceflow(
     src_port: int = 1234,
     ttl: int = 64,
     timeout_seconds: int = 20,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Run a Traceflow to trace a packet's path through the NSX overlay.
 
@@ -678,7 +678,7 @@ def run_traceflow(
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
+def get_traceflow_result(traceflow_id: str, target: Optional[str] = None) -> dict:
     """[READ] Get the current status and observations of an existing Traceflow.
 
     Use this to check a previously initiated traceflow without waiting.
@@ -703,7 +703,7 @@ def get_traceflow_result(traceflow_id: str, target: str | None = None) -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_idps_profiles(target: str | None = None) -> list[dict]:
+def list_idps_profiles(target: Optional[str] = None) -> list[dict]:
     """[READ] List all IDPS profiles configured in NSX.
 
     Returns each profile's id, display_name, severity, criteria,
@@ -723,7 +723,7 @@ def list_idps_profiles(target: str | None = None) -> list[dict]:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def get_idps_status(target: str | None = None) -> dict:
+def get_idps_status(target: Optional[str] = None) -> dict:
     """[READ] Get the IDPS engine status across all transport nodes.
 
     Returns global_status (ENABLED/DISABLED), signature_version,
