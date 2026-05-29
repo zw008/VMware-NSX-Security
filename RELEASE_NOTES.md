@@ -1,3 +1,13 @@
+## v1.5.29 (2026-05-29) — NSX/VCF Version Compatibility Table
+
+### Documentation
+- `references/capabilities.md`: added "NSX Version Compatibility" + "VCF Compatibility" tables mirroring sibling vmware-nsx. Covers NSX 9.0/9.1 (DFW Policy API paths unchanged), 4.x, NSX-T 3.x/2.5.x; VCF 9.1/9.0/5.x/4.x.
+- Caveats noted: NSX 9 removed N-VDS and bare-metal agent — no impact on this skill (NSX-T Policy API only).
+- Closes the v1.5.23 doc gap (compatibility was declared in README but missing from reference doc).
+
+### No code changes
+Documentation-only release.
+
 ## v1.5.28 (2026-05-20)
 
 **Fix `subclass() arg 1 must be a class` in goose/old mcp environments** —
