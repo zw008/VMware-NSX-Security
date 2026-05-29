@@ -116,3 +116,33 @@ Best practice for NSX tag design:
 | Delete traceflow | DELETE | /api/v1/traceflows/{id} |
 | IDPS profiles | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services/profiles |
 | IDPS status | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services/status |
+
+## NSX Version Compatibility
+
+| NSX Version | Support Level | Notes |
+|-------------|--------------|-------|
+| NSX 9.1 | Full | DFW Policy API paths unchanged. VDS 7.0+ required (N-VDS removed in NSX 9 — no impact on DFW skill). |
+| NSX 9.0 | Full | DFW Policy API paths unchanged. Bare-metal NSX agent removed (no impact on DFW skill — Policy API only). |
+| NSX 4.2.x | Full | Latest, all DFW + Security Group + Traceflow + IDS/IPS features supported |
+| NSX 4.1.x | Full | All features supported |
+| NSX 4.0.x | Full | Policy API v1 fully available |
+| NSX-T 3.2.x | Full | Policy API mature, all features work |
+| NSX-T 3.1.x | Full | DFW Policy API stable |
+| NSX-T 3.0.x | Compatible | Policy API available; some IDS/IPS endpoints introduced later |
+| NSX-T 2.5.x | Limited | Policy API available but incomplete; some tools may fail |
+| NSX-V (6.x) | Not supported | Completely different API (SOAP-based). Use legacy tools |
+
+### VCF (VMware Cloud Foundation) Compatibility
+
+| VCF Version | Bundled NSX | Support |
+|-------------|-------------|---------|
+| VCF 9.1 | NSX 9.1 | Full |
+| VCF 9.0 | NSX 9.0 | Full |
+| VCF 5.2 | NSX 4.2.x | Full |
+| VCF 5.1 | NSX 4.1.x | Full |
+| VCF 5.0 | NSX 4.0.x | Full |
+| VCF 4.5 | NSX-T 3.2.x | Full |
+| VCF 4.4 | NSX-T 3.2.x | Full |
+| VCF 4.3 | NSX-T 3.1.x | Full |
+
+**Note**: This skill uses the NSX-T Policy API only. NSX 9 changes that affect the network plane (N-VDS removal, bare-metal agent removal) do not affect DFW, Security Group, Traceflow, or IDS/IPS operations exposed by this skill.
