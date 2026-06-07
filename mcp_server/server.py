@@ -306,29 +306,48 @@ def create_dfw_rule(
     description: str = "",
     target: Optional[str] = None,
 ) -> dict:
-    """[WRITE] Create a DFW rule under the specified policy.
+    """[WRITE] Create a firewall rule under an existing DFW security policy.
+
+    Creates via PUT, so calling again with the same rule_id replaces that
+    rule's definition. The rule is enforced on the NSX data plane
+    immediately unless disabled=True. Pick the policy_id with
+    list_dfw_policies first; to change selected fields of an existing rule
+    prefer update_dfw_rule, and to remove one use delete_dfw_rule. Calls
+    are pre-checked by the vmware-policy engine (risk level: medium) and
+    audited to ~/.vmware/audit.db.
+
+    Returns the created rule dict from the NSX API (id, path, action,
+    sequence_number, ...). On failure returns {"error", "hint"}; an
+    invalid action/direction/ip_protocol returns an error listing the
+    valid values.
 
     Args:
-        policy_id: Parent policy identifier.
-        rule_id: Unique rule identifier within the policy.
+        policy_id: Parent policy ID (alphanumeric and hyphens), as
+            returned by list_dfw_policies.
+        rule_id: Unique rule ID within the policy (alphanumeric and
+            hyphens). Reusing an existing ID overwrites that rule.
         display_name: Human-readable rule name.
         action: Firewall action — ALLOW, DROP, REJECT, or
             JUMP_TO_APPLICATION (default: ALLOW).
-        sources: List of source group paths. Use ['ANY'] for any source
-            (default: ANY).
-        destinations: List of destination group paths. Use ['ANY'] for any
-            destination (default: ANY).
-        services: List of service paths. Use ['ANY'] for all services
-            (default: ANY).
-        scope: List of scope paths (groups/segments) limiting where the
-            rule is applied.
+        sources: Source group policy paths, e.g.
+            ['/infra/domains/default/groups/web']. Use ['ANY'] or omit
+            for any source (default: ANY).
+        destinations: Destination group policy paths, same format as
+            sources. Use ['ANY'] or omit for any destination (default: ANY).
+        services: Service policy paths, e.g. ['/infra/services/HTTPS'].
+            Use ['ANY'] or omit for all services (default: ANY).
+        scope: Applied-to group/segment paths limiting where the rule is
+            enforced. Omit to apply to the entire DFW.
         direction: Traffic direction — IN, OUT, or IN_OUT (default: IN_OUT).
         ip_protocol: IP version — IPV4, IPV6, or IPV4_IPV6 (default: IPV4_IPV6).
         logged: Log matched traffic (default: False).
-        disabled: Create the rule in disabled state (default: False).
-        sequence_number: Rule priority within the policy (default: 10).
-        description: Optional description.
-        target: Optional NSX Manager target name from config.
+        disabled: Create the rule disabled so it is not enforced
+            (default: False).
+        sequence_number: Rule priority within the policy; lower values
+            match first (default: 10).
+        description: Optional free-text description.
+        target: Optional NSX Manager target name from config. Uses the
+            default target if omitted.
     """
     try:
         from vmware_nsx_security.ops.dfw_rules import create_dfw_rule as _fn
@@ -410,12 +429,28 @@ def update_dfw_rule(
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def delete_dfw_rule(policy_id: str, rule_id: str, target: Optional[str] = None) -> dict:
-    """[WRITE] Delete a DFW rule from a policy.
+    """[WRITE] Permanently delete one DFW rule from its parent security policy.
+
+    Deletion is irreversible and takes effect immediately on the NSX data
+    plane: traffic the rule matched falls through to lower-priority rules
+    or the policy's default action. Confirm the rule_id with
+    list_dfw_rules and check recent hits with get_dfw_rule_stats before
+    deleting. To remove an entire policy use delete_dfw_policy (it refuses
+    while rules remain); this tool deletes a single rule without that
+    guard. Calls are pre-checked by the vmware-policy engine (risk level:
+    high) and audited to ~/.vmware/audit.db; the CLI equivalent
+    additionally requires double confirmation.
+
+    Returns {"status": "deleted", "message": ...} on success, or
+    {"error", "hint"} on failure (e.g. rule not found, connectivity).
 
     Args:
-        policy_id: Parent policy identifier.
-        rule_id: ID of the rule to delete.
-        target: Optional NSX Manager target name from config.
+        policy_id: ID of the parent security policy (alphanumeric and
+            hyphens), as returned by list_dfw_policies.
+        rule_id: ID of the rule to delete within that policy, as returned
+            by list_dfw_rules.
+        target: Optional NSX Manager target name from config. Uses the
+            default target if omitted.
     """
     try:
         from vmware_nsx_security.ops.dfw_rules import delete_dfw_rule as _fn
