@@ -1,3 +1,32 @@
+## v1.5.32 (2026-06-08) — VM tagging, IDPS status, and Traceflow rewritten to real NSX APIs
+
+A family-wide spec audit found three features calling invented endpoints or
+sending invented payloads — none had ever worked against a real NSX Manager.
+
+### Fixed
+- **VM tagging**: `POST /api/v1/fabric/virtual-machines?action=add_tags|remove_tags`
+  with `{external_id, tags}` (the previous `/fabric/tags/tag` path never existed).
+- **IDPS status**: reads the real `intrusion-services/signatures/status` and
+  `intrusion-services` (IdsSettings) endpoints; the old code called two invented
+  endpoints and swallowed the 404s into a permanent "UNKNOWN" — errors now surface.
+- **Traceflow**: packet body uses the real FieldsPacketData structure (nested
+  ip_header/transport_header; transport_type=UNICAST); polling reads
+  `operation_state` (IN_PROGRESS/FINISHED/FAILED); observations discriminated
+  by `resource_type` (dropped detection + reason/acl_rule_id now work).
+- **Groups**: tag conditions carry the required `value: "scope|tag"` string
+  (the invented `tag` object 400'd every tag-based group create);
+  heterogeneous expressions joined with OR (NSX rejects AND across types);
+  `delete_group` reference scan extended to rule/policy `scope` and now ABORTS
+  on scan failure instead of deleting blind.
+- **IDPS profiles**: polymorphic `IdsProfileFilterCriteria` parsing; severity
+  array handling; overridden-signature count from the real list field.
+- **Rules**: stats report real RuleStatistics fields; category validated against
+  the full enum (incl. Ethernet); JUMP_TO_APPLICATION constraint documented.
+
+### Tests & docs
+- +22 shape regression tests; safety test asserts CLI confirm guards;
+  README/SKILL/references synced.
+
 ## v1.5.30 (2026-06-07) — Tool description quality (Glama TDQS)
 
 ### Improved
