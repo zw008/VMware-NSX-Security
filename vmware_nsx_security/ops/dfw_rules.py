@@ -65,7 +65,9 @@ def create_dfw_rule(
         rule_id: Unique rule identifier (alphanumeric + hyphens).
         display_name: Human-readable rule name.
         action: Firewall action — ALLOW, DROP, REJECT, or
-            JUMP_TO_APPLICATION (default: ALLOW).
+            JUMP_TO_APPLICATION (default: ALLOW). Note:
+            JUMP_TO_APPLICATION is only valid in policies whose category
+            is Environment; NSX rejects it in other categories.
         sources: List of source group paths or 'ANY' (default: ANY).
         destinations: List of destination group paths or 'ANY' (default: ANY).
         services: List of service paths or 'ANY' (default: ANY).
@@ -87,7 +89,11 @@ def create_dfw_rule(
     _validate_id(rule_id, "rule_id")
 
     if action not in _VALID_ACTIONS:
-        raise ValueError(f"Invalid action '{action}'. Must be one of: {_VALID_ACTIONS}")
+        raise ValueError(
+            f"Invalid action '{action}'. Must be one of: {_VALID_ACTIONS}. "
+            "Note: JUMP_TO_APPLICATION is only allowed when the parent "
+            "policy's category is Environment."
+        )
     if direction not in _VALID_DIRECTIONS:
         raise ValueError(f"Invalid direction '{direction}'. Must be one of: {_VALID_DIRECTIONS}")
     if ip_protocol not in _VALID_IP_PROTOS:
@@ -154,7 +160,11 @@ def update_dfw_rule(
     _validate_id(rule_id, "rule_id")
 
     if action is not None and action not in _VALID_ACTIONS:
-        raise ValueError(f"Invalid action '{action}'. Must be one of: {_VALID_ACTIONS}")
+        raise ValueError(
+            f"Invalid action '{action}'. Must be one of: {_VALID_ACTIONS}. "
+            "Note: JUMP_TO_APPLICATION is only allowed when the parent "
+            "policy's category is Environment."
+        )
 
     body: dict[str, Any] = {}
     if display_name is not None:
@@ -224,7 +234,7 @@ def get_dfw_rule_stats(client: NsxClient, policy_id: str, rule_id: str) -> dict:
 
     Returns:
         Statistics dict with packet_count, byte_count, session_count,
-        and population_count (number of hosts where rule is realised).
+        hit_count, and popularity_index (real RuleStatistics fields).
     """
     _validate_id(policy_id, "policy_id")
     _validate_id(rule_id, "rule_id")
@@ -232,12 +242,13 @@ def get_dfw_rule_stats(client: NsxClient, policy_id: str, rule_id: str) -> dict:
     stats = client.get(
         f"{_DFW_BASE}/{policy_id}/rules/{rule_id}/statistics"
     )
-    # NSX returns an array of per-firewall-section stats; sum them up
+    # NSX returns an array of per-enforcement-point stats; sum them up
     results = stats.get("results", [stats])
     total_packets = sum(r.get("packet_count", 0) for r in results)
     total_bytes = sum(r.get("byte_count", 0) for r in results)
     total_sessions = sum(r.get("session_count", 0) for r in results)
-    population = stats.get("population_count", len(results))
+    total_hits = sum(r.get("hit_count", 0) for r in results)
+    popularity = max((r.get("popularity_index", 0) for r in results), default=0)
 
     return {
         "policy_id": policy_id,
@@ -245,6 +256,7 @@ def get_dfw_rule_stats(client: NsxClient, policy_id: str, rule_id: str) -> dict:
         "packet_count": total_packets,
         "byte_count": total_bytes,
         "session_count": total_sessions,
-        "population_count": population,
+        "hit_count": total_hits,
+        "popularity_index": popularity,
         "raw": results,
     }

@@ -9,6 +9,10 @@ APIs used:
   GET  /api/v1/traceflows/<id>      — poll for completion
   GET  /api/v1/traceflows/<id>/observations — fetch observations/hop data
   DELETE /api/v1/traceflows/<id>    — clean up after retrieval
+
+Note: these Manager (MP) API endpoints are deprecated in NSX 3.x/4.x but
+remain functional. The Policy API successor lives under
+/policy/api/v1/infra/traceflows.
 """
 
 from __future__ import annotations
@@ -27,6 +31,9 @@ _log = logging.getLogger("vmware-nsx-security.traceflow")
 
 _POLL_INTERVAL = 2  # seconds between status checks
 _MAX_POLLS = 15     # up to 30 seconds total wait time
+
+# IP protocol numbers for the FieldsPacketData ip_header
+_IP_PROTOCOL_NUMBERS = {"TCP": 6, "UDP": 17, "ICMP": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -63,34 +70,39 @@ def run_traceflow(
         timeout_seconds: Maximum seconds to wait for completion (default: 20).
 
     Returns:
-        Dict with traceflow_id, status, component observations list,
-        and a summary of any DFW hits found along the path.
+        Dict with traceflow_id, operation_state (IN_PROGRESS/FINISHED/
+        FAILED), component observations list, and a summary of any DFW
+        hits found along the path.
     """
     protocol = protocol.upper()
     if protocol not in ("TCP", "UDP", "ICMP"):
         raise ValueError(f"Invalid protocol '{protocol}'. Must be TCP, UDP, or ICMP.")
 
-    # Build packet spec
+    # Build packet spec. FieldsPacketData nests ip_header / transport_header;
+    # transport_type is the L2 delivery mode (UNICAST), NOT the protocol.
+    if protocol == "TCP":
+        transport_header: dict[str, Any] = {
+            "tcp_header": {"src_port": src_port, "dst_port": dst_port, "tcp_flags": 2}  # SYN
+        }
+    elif protocol == "UDP":
+        transport_header = {
+            "udp_header": {"src_port": src_port, "dst_port": dst_port}
+        }
+    else:  # ICMP
+        transport_header = {"icmp_echo_request_header": {}}
+
     packet: dict[str, Any] = {
         "resource_type": "FieldsPacketData",
-        "src_ip": sanitize(src_ip),
-        "dst_ip": sanitize(dst_ip),
-        "ip_ttl": ttl,
+        "routed": True,
+        "transport_type": "UNICAST",
+        "ip_header": {
+            "src_ip": sanitize(src_ip),
+            "dst_ip": sanitize(dst_ip),
+            "ttl": ttl,
+            "protocol": _IP_PROTOCOL_NUMBERS[protocol],
+        },
+        "transport_header": transport_header,
     }
-
-    if protocol == "TCP":
-        packet["transport_type"] = "TCP"
-        packet["src_port"] = src_port
-        packet["dst_port"] = dst_port
-        packet["tcp_flags"] = 2  # SYN
-    elif protocol == "UDP":
-        packet["transport_type"] = "UDP"
-        packet["src_port"] = src_port
-        packet["dst_port"] = dst_port
-    else:  # ICMP
-        packet["transport_type"] = "ICMP"
-        packet["icmp_type"] = 8
-        packet["icmp_code"] = 0
 
     body: dict[str, Any] = {
         "lport_id": sanitize(src_lport_id),
@@ -105,17 +117,20 @@ def run_traceflow(
 
     _log.info("Traceflow %s initiated: %s -> %s", tf_id, src_ip, dst_ip)
 
-    # Poll for completion
+    # Poll for completion — the API reports `operation_state` with enum
+    # IN_PROGRESS / FINISHED / FAILED.
     polls = min(_MAX_POLLS, timeout_seconds // _POLL_INTERVAL)
-    status = "PENDING"
+    operation_state = "IN_PROGRESS"
     for _ in range(polls):
         time.sleep(_POLL_INTERVAL)
         tf_data = client.get(f"/api/v1/traceflows/{tf_id}")
-        status = tf_data.get("status", "PENDING")
-        if status in ("COMPLETED", "FAILED", "PARTIAL"):
+        operation_state = tf_data.get("operation_state", "IN_PROGRESS")
+        if operation_state in ("FINISHED", "FAILED"):
             break
 
-    # Fetch observations
+    # Fetch observations — discriminated by `resource_type`
+    # (TraceflowObservationDelivered / Dropped / DroppedLogical /
+    # Forwarded / Received / ...).
     observations: list[dict] = []
     dfw_hits: list[dict] = []
     try:
@@ -123,15 +138,16 @@ def run_traceflow(
         raw_obs = obs_data.get("results", [])
         for obs in raw_obs:
             component = sanitize(obs.get("component_name", ""))
-            obs_type = sanitize(obs.get("observation_type", ""))
+            rtype = sanitize(obs.get("resource_type", ""))
             entry = {
                 "component": component,
-                "type": obs_type,
+                "resource_type": rtype,
                 "component_type": sanitize(obs.get("component_type", "")),
                 "transport_node": sanitize(obs.get("transport_node_name", "")),
             }
-            if obs_type == "DROPPED":
-                entry["reason"] = sanitize(obs.get("reason", ""))
+            # reason / acl_rule_id only exist on Dropped* observations
+            if rtype.startswith("TraceflowObservationDropped"):
+                entry["reason"] = sanitize(str(obs.get("reason", "")))
                 entry["acl_rule_id"] = sanitize(str(obs.get("acl_rule_id", "")))
             observations.append(entry)
 
@@ -140,7 +156,7 @@ def run_traceflow(
                 dfw_hits.append({
                     "component": component,
                     "acl_rule_id": sanitize(str(obs.get("acl_rule_id", ""))),
-                    "action": sanitize(obs.get("reason", "")),
+                    "action": sanitize(str(obs.get("reason", ""))),
                 })
     except Exception as exc:
         _log.warning("Failed to fetch traceflow observations for %s: %s", tf_id, exc)
@@ -153,7 +169,7 @@ def run_traceflow(
 
     return {
         "traceflow_id": tf_id,
-        "status": status,
+        "operation_state": operation_state,
         "src_ip": src_ip,
         "dst_ip": dst_ip,
         "protocol": protocol,
@@ -174,31 +190,37 @@ def get_traceflow_result(client: NsxClient, traceflow_id: str) -> dict:
         traceflow_id: Traceflow ID returned by run_traceflow or a prior call.
 
     Returns:
-        Dict with traceflow_id, status, and observations list.
+        Dict with traceflow_id, operation_state (IN_PROGRESS/FINISHED/
+        FAILED), and observations list (discriminated by resource_type).
     """
     if not re.match(r"^[\w\-\.]+$", traceflow_id):
         raise ValueError(f"Invalid traceflow_id: '{traceflow_id}'")
 
     tf_data = client.get(f"/api/v1/traceflows/{traceflow_id}")
-    status = tf_data.get("status", "UNKNOWN")
+    operation_state = tf_data.get("operation_state", "UNKNOWN")
 
     observations: list[dict] = []
     try:
         obs_data = client.get(f"/api/v1/traceflows/{traceflow_id}/observations")
         for obs in obs_data.get("results", []):
-            observations.append({
+            rtype = sanitize(obs.get("resource_type", ""))
+            entry = {
                 "component": sanitize(obs.get("component_name", "")),
-                "type": sanitize(obs.get("observation_type", "")),
+                "resource_type": rtype,
                 "component_type": sanitize(obs.get("component_type", "")),
                 "transport_node": sanitize(obs.get("transport_node_name", "")),
-                "reason": sanitize(obs.get("reason", "")),
-            })
+            }
+            # reason / acl_rule_id only exist on Dropped* observations
+            if rtype.startswith("TraceflowObservationDropped"):
+                entry["reason"] = sanitize(str(obs.get("reason", "")))
+                entry["acl_rule_id"] = sanitize(str(obs.get("acl_rule_id", "")))
+            observations.append(entry)
     except Exception as exc:
         _log.warning("Could not fetch observations: %s", exc)
 
     return {
         "traceflow_id": traceflow_id,
-        "status": status,
+        "operation_state": operation_state,
         "observation_count": len(observations),
         "observations": observations,
     }

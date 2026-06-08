@@ -148,8 +148,8 @@ def get_dfw_rule_stats(
 ) -> dict:
     """[READ] Get packet/byte hit-count statistics for a DFW rule.
 
-    Returns packet_count, byte_count, session_count, and population_count
-    (number of hosts where the rule is realised).
+    Returns packet_count, byte_count, session_count, hit_count, and
+    popularity_index (real NSX RuleStatistics fields).
 
     Args:
         policy_id: Parent policy identifier.
@@ -186,8 +186,9 @@ def create_dfw_policy(
     Args:
         policy_id: Unique policy ID (alphanumeric, hyphens, underscores).
         display_name: Human-readable policy name.
-        category: Policy category — Emergency, Infrastructure, Environment,
-            or Application (default: Application).
+        category: Policy category — Ethernet, Emergency, Infrastructure,
+            Environment, or Application (default: Application). Controls
+            DFW evaluation order (Ethernet first, Application last).
         sequence_number: Priority order; lower number = higher priority (default: 10).
         stateful: Whether to track connection state (default: True).
         description: Optional description.
@@ -328,7 +329,8 @@ def create_dfw_rule(
             hyphens). Reusing an existing ID overwrites that rule.
         display_name: Human-readable rule name.
         action: Firewall action — ALLOW, DROP, REJECT, or
-            JUMP_TO_APPLICATION (default: ALLOW).
+            JUMP_TO_APPLICATION (default: ALLOW). JUMP_TO_APPLICATION is
+            only valid in policies whose category is Environment.
         sources: Source group policy paths, e.g.
             ['/infra/domains/default/groups/web']. Use ['ANY'] or omit
             for any source (default: ANY).
@@ -531,8 +533,11 @@ def create_group(
 ) -> dict:
     """[WRITE] Create an NSX security group with optional membership criteria.
 
-    Membership criteria are ANDed together when multiple are provided:
+    Multiple criteria are ORed together (NSX only permits AND between
+    same-member-type Conditions, so heterogeneous expression types must
+    join with OR):
     - tag_scope / tag_value: include VMs matching the NSX tag
+      (Condition with pipe-delimited value "scope|tag")
     - ip_addresses: include specific IP addresses or CIDRs
     - segment_paths: include all VMs on specified segments
 
@@ -573,8 +578,9 @@ def create_group(
 def delete_group(group_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Delete an NSX security group.
 
-    Raises ValueError if the group is referenced by any DFW policy rule
-    as a source or destination group.
+    Refuses deletion if the group is referenced by any DFW rule (as
+    source, destination, or applied-to scope) or by a policy-level
+    scope, or if the reference scan itself fails.
 
     Args:
         group_id: ID of the group to delete.
@@ -684,7 +690,11 @@ def run_traceflow(
     """[WRITE] Run a Traceflow to trace a packet's path through the NSX overlay.
 
     Injects a synthetic probe packet from the source logical port and
-    returns hop-by-hop observations including DFW rule hits and drop reasons.
+    returns hop-by-hop observations including DFW rule hits and drop
+    reasons. The result reports operation_state (IN_PROGRESS / FINISHED /
+    FAILED) and observations discriminated by resource_type (e.g.
+    TraceflowObservationForwarded, TraceflowObservationDroppedLogical —
+    Dropped* entries carry reason and acl_rule_id).
 
     Args:
         src_lport_id: Source logical port ID (attachment UUID of the VM NIC).
@@ -713,9 +723,12 @@ def run_traceflow(
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_traceflow_result(traceflow_id: str, target: Optional[str] = None) -> dict:
-    """[READ] Get the current status and observations of an existing Traceflow.
+    """[READ] Get the current state and observations of an existing Traceflow.
 
     Use this to check a previously initiated traceflow without waiting.
+    Returns operation_state (IN_PROGRESS / FINISHED / FAILED) and
+    observations discriminated by resource_type; Dropped* observations
+    carry reason and acl_rule_id.
 
     Args:
         traceflow_id: Traceflow ID from a previous run_traceflow call.
@@ -740,8 +753,9 @@ def get_traceflow_result(traceflow_id: str, target: Optional[str] = None) -> dic
 def list_idps_profiles(target: Optional[str] = None) -> list[dict]:
     """[READ] List all IDPS profiles configured in NSX.
 
-    Returns each profile's id, display_name, severity, criteria,
-    and count of overridden signatures.
+    Returns each profile's id, display_name, profile_severity
+    (comma-joined list), criteria (filter_name/filter_value pairs such
+    as ATTACK_TYPE or CVSS filters), and overridden signature count.
 
     Args:
         target: Optional NSX Manager target name from config.
@@ -758,10 +772,11 @@ def list_idps_profiles(target: Optional[str] = None) -> list[dict]:
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def get_idps_status(target: Optional[str] = None) -> dict:
-    """[READ] Get the IDPS engine status across all transport nodes.
+    """[READ] Get IDPS signature status and global IDS settings.
 
-    Returns global_status (ENABLED/DISABLED), signature_version,
-    last_signature_update, and per-node status counts.
+    Returns 'signature_status' (scalar fields of the signature bundle
+    status resource, e.g. version/update state — field names vary by NSX
+    release) and 'settings' (auto_update, ids_events_to_syslog).
 
     Args:
         target: Optional NSX Manager target name from config.

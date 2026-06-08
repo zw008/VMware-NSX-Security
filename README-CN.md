@@ -32,7 +32,7 @@ vmware-nsx-security doctor
 | 安全组 | 列出、获取、创建、删除（4 个） |
 | VM 标签 | 列出标签、应用标签（2 个） |
 | Traceflow | 运行追踪、获取结果（2 个） |
-| IDPS | 列出 Profile、获取状态（2 个） |
+| IDPS | 列出 Profile、签名状态 + 全局设置（2 个） |
 
 **共 20 个 MCP 工具**（10 只读 + 10 写入）
 
@@ -85,9 +85,9 @@ vmware-nsx-security-mcp
 ### 对应用进行微分段
 
 ```bash
-# 1. 按标签创建安全组
-vmware-nsx-security group create web-vms --name "Web VMs" --tag-scope tier --tag-value web
-vmware-nsx-security group create app-vms --name "App VMs" --tag-scope tier --tag-value app
+# 1. 按标签创建安全组 — 使用 create_group MCP 工具
+#    （tag_scope=tier, tag_value=web → Condition value 为 "tier|web"；
+#      多个条件类型（标签/IP/Segment）之间为 OR 关系）
 
 # 2. 创建 DFW 策略
 vmware-nsx-security policy create web-app-policy --name "Web to App" --category Application
@@ -110,9 +110,13 @@ vmware-nsx-security traceflow run <src-lport-id> \
   --src-ip 10.0.1.5 --dst-ip 10.0.2.10 --proto TCP --dst-port 443
 ```
 
+输出包含 `operation_state`（`IN_PROGRESS`/`FINISHED`/`FAILED`）、按
+`resource_type` 区分的逐跳 `observations`（Dropped* 条目携带 `reason` +
+`acl_rule_id`）以及 `dfw_hits` 命中摘要。
+
 ## 安全性
 
-- **依赖检查**：有活跃规则时不允许删除策略；被 DFW 规则引用的安全组不允许删除
+- **依赖检查**：有活跃规则时不允许删除策略；被 DFW 规则/作用域引用的安全组不允许删除；引用扫描失败时中止删除
 - **审计日志**：所有写操作记录到 `~/.vmware-nsx-security/audit.log`（JSON Lines 格式）
 - **输入验证**：ID 字符集校验；API 返回文本经过 `_sanitize()` 清洗，防止提示注入
 - **Dry-run 模式**：CLI 写命令均支持 `--dry-run` 预览

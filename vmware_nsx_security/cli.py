@@ -428,8 +428,8 @@ def tag_apply(
             target=t,
             resource=vm_id,
             operation="apply_vm_tag",
-            api_call="POST /api/v1/fabric/tags/tag?action=add_tag",
-            parameters={"scope": scope, "tag": value},
+            api_call="POST /api/v1/fabric/virtual-machines?action=add_tags",
+            parameters={"external_id": vm_id, "scope": scope, "tag": value},
         )
         return
 

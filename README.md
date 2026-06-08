@@ -33,7 +33,7 @@ vmware-nsx-security doctor
 | Security Groups | list, get, create, delete |
 | VM Tags | list tags, apply tag |
 | Traceflow | run trace, get result |
-| IDPS | list profiles, engine status |
+| IDPS | list profiles, signature status + settings |
 
 **Total: 20 MCP tools** (10 read-only + 10 write)
 
@@ -86,9 +86,9 @@ vmware-nsx-security-mcp
 ### Microsegment an Application
 
 ```bash
-# 1. Create groups by tag
-vmware-nsx-security group create web-vms --name "Web VMs" --tag-scope tier --tag-value web
-vmware-nsx-security group create app-vms --name "App VMs" --tag-scope tier --tag-value app
+# 1. Create groups by tag — via the create_group MCP tool
+#    (tag_scope=tier, tag_value=web → matched as Condition value "tier|web";
+#     multiple criteria types — tag/IP/segment — are ORed)
 
 # 2. Create DFW policy
 vmware-nsx-security policy create web-app-policy --name "Web to App" --category Application
@@ -111,9 +111,13 @@ vmware-nsx-security traceflow run <src-lport-id> \
   --src-ip 10.0.1.5 --dst-ip 10.0.2.10 --proto TCP --dst-port 443
 ```
 
+Output reports `operation_state` (`IN_PROGRESS`/`FINISHED`/`FAILED`),
+hop-by-hop `observations` discriminated by `resource_type` (Dropped*
+entries carry `reason` + `acl_rule_id`), and a `dfw_hits` summary.
+
 ## Safety
 
-- **Dependency checks**: Cannot delete a policy with active rules, or a group referenced by DFW rules
+- **Dependency checks**: Cannot delete a policy with active rules, or a group referenced by DFW rules/scopes; group deletion aborts if the reference scan fails
 - **Audit logging**: All write ops logged to `~/.vmware-nsx-security/audit.log`
 - **Input validation**: IDs validated; all API text sanitized against prompt injection
 - **Dry-run mode**: All CLI write commands support `--dry-run`

@@ -56,7 +56,7 @@ vmware-nsx-security doctor
 - Create security groups based on VM tags, IP ranges, or segment membership
 - Apply or list NSX tags on virtual machines
 - Run Traceflow to trace a packet path and diagnose drop reasons
-- Check IDPS profile configuration and engine status
+- Check IDPS profile configuration, signature status, and global IDS settings
 - Implement zero-trust microsegmentation between application tiers
 
 **Use companion skills for**:
@@ -95,7 +95,7 @@ vmware-nsx-security doctor
 
 **Steps**:
 1. Tag the VMs first (see workflow below) — empty groups = no enforcement
-2. `group create web-vms --tag-scope tier --tag-value web` (and `app-vms`)
+2. Create groups via the `create_group` MCP tool with `tag_scope`/`tag_value` (the tag condition is matched as `"scope|tag"`, e.g. `tier|web`; note multiple criteria types — tag/IP/segment — are ORed, not ANDed)
 3. `policy create app-microseg --category Application`
 4. Add rules in order: ALLOW management → ALLOW intra-tier → ALLOW web→app on app-port → DROP any-any with logging
 5. Verify with traceflow (see below) **before** enabling default-deny
@@ -161,17 +161,17 @@ All MCP tools accept an optional `target` parameter.
 | DFW Rules | `create_dfw_rule` | Write | Create rule with sources/destinations/services/action/scope |
 | | `update_dfw_rule` | Write | Partial update rule fields |
 | | `delete_dfw_rule` | Write | Delete a rule from a policy |
-| | `get_dfw_rule_stats` | Read | Get packet/byte hit counts for a rule |
+| | `get_dfw_rule_stats` | Read | Get packet/byte/session/hit counts and popularity_index for a rule |
 | Security Groups | `list_groups` | Read | List all security groups with expression count |
 | | `get_group` | Read | Get group details: expression criteria + up to 50 effective VM members |
-| | `create_group` | Write | Create group with tag/IP/segment membership criteria |
-| | `delete_group` | Write | Delete group — refuses if referenced by DFW rules |
+| | `create_group` | Write | Create group with tag/IP/segment membership criteria (tag matched as "scope\|tag"; multiple criteria ORed) |
+| | `delete_group` | Write | Delete group — refuses if referenced by DFW rules/scopes, or if the reference scan fails |
 | VM Tags | `list_vm_tags` | Read | List NSX tags on a VM by display name |
 | | `apply_vm_tag` | Write | Apply a scope/value tag to a VM (additive, preserves existing tags) |
-| Traceflow | `run_traceflow` | Write | Inject probe packet and return hop-by-hop observations |
-| | `get_traceflow_result` | Read | Check status/observations of an existing traceflow |
-| IDPS | `list_idps_profiles` | Read | List IDPS profiles with severity and criteria |
-| | `get_idps_status` | Read | Get IDPS engine status: enabled/disabled, signature version, per-node counts |
+| Traceflow | `run_traceflow` | Write | Inject probe packet; returns operation_state + hop-by-hop observations (by resource_type) + dfw_hits |
+| | `get_traceflow_result` | Read | Check operation_state/observations of an existing traceflow |
+| IDPS | `list_idps_profiles` | Read | List IDPS profiles with severity and filter criteria |
+| | `get_idps_status` | Read | Get IDPS signature status + global IDS settings (auto_update, syslog export) |
 
 ## CLI Quick Reference
 
@@ -215,7 +215,7 @@ vmware-nsx-security doctor [--skip-auth]
 
 ### "Cannot delete group — referenced by DFW rules"
 
-`delete_group` scans all policies for rules that reference the group in source_groups or destination_groups. Remove the group from those rules first (via `update_dfw_rule` replacing the group path with 'ANY' or another group), then retry.
+`delete_group` scans all policies for references to the group in rule source_groups, destination_groups, and applied-to scope, plus policy-level scope. Remove the group from those references first (via `update_dfw_rule` replacing the group path with 'ANY' or another group), then retry. If the error says the reference scan itself failed, deletion was aborted as a precaution — verify NSX connectivity with `vmware-nsx-security doctor` and retry.
 
 ### "No virtual machine found with display_name"
 
@@ -226,10 +226,11 @@ vmware-nsx-security doctor [--skip-auth]
 
 ### Traceflow returns empty observations
 
-1. Verify the `src_lport_id` is the correct logical port attachment UUID — not the segment port path. Get it from `vmware-nsx troubleshoot vm-segment <vm>`.
-2. The source VM must be powered on and connected to an NSX overlay segment.
-3. If the VM is on a VLAN-backed segment, Traceflow is not supported.
-4. NSX Manager requires the transport node hosting the source VM to be reachable. Check `vmware-nsx health transport-nodes`.
+1. If `operation_state` is `IN_PROGRESS`, the trace has not finished — poll again with `get_traceflow_result <traceflow-id>`.
+2. Verify the `src_lport_id` is the correct logical port attachment UUID — not the segment port path. Get it from `vmware-nsx troubleshoot vm-segment <vm>`.
+3. The source VM must be powered on and connected to an NSX overlay segment.
+4. If the VM is on a VLAN-backed segment, Traceflow is not supported.
+5. NSX Manager requires the transport node hosting the source VM to be reachable. Check `vmware-nsx health transport-nodes`.
 
 ### DFW rule stats show zero hits
 

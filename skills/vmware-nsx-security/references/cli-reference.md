@@ -35,7 +35,7 @@ Create a new DFW security policy.
 ```bash
 vmware-nsx-security policy create <policy-id> \
   --name "Display Name" \
-  [--category Application|Emergency|Infrastructure|Environment] \
+  [--category Ethernet|Emergency|Infrastructure|Environment|Application] \
   [--seq <number>] \
   [--description "text"] \
   [--dry-run] \
@@ -45,7 +45,7 @@ vmware-nsx-security policy create <policy-id> \
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--name` | required | Human-readable policy name |
-| `--category` | Application | Policy evaluation category |
+| `--category` | Application | Policy evaluation category (validated; Ethernet evaluated first, Application last) |
 | `--seq` | 10 | Sequence number (lower = higher priority) |
 | `--description` | "" | Optional description |
 
@@ -78,6 +78,9 @@ Get packet/byte hit-count statistics for a rule.
 vmware-nsx-security rule stats <policy-id> <rule-id> [--target <name>]
 ```
 
+Output fields: `packet_count`, `byte_count`, `session_count`, `hit_count`
+(summed across enforcement points), `popularity_index` (max).
+
 ### `rule delete`
 Delete a DFW rule.
 
@@ -106,11 +109,20 @@ vmware-nsx-security group get <group-id> [--target <name>]
 ```
 
 ### `group delete`
-Delete a security group (checks for DFW rule references first).
+Delete a security group (checks for DFW references first).
 
 ```bash
 vmware-nsx-security group delete <group-id> [--dry-run] [--target <name>]
 ```
+
+Refuses deletion if the group is referenced by any DFW rule (source,
+destination, or applied-to scope) or by a policy-level scope. If the
+reference scan itself fails, deletion is aborted rather than proceeding
+blind.
+
+> Group **creation** (with tag/IP/segment criteria) is exposed via the
+> `create_group` MCP tool. The tag criterion is a Policy Condition with a
+> pipe-delimited value `"scope|tag"`; multiple criteria are ORed.
 
 ---
 
@@ -139,6 +151,10 @@ vmware-nsx-security tag apply <vm-external-id> \
 | `--scope` | Tag scope (e.g. `tier`, `env`, `owner`) |
 | `--value` | Tag value (e.g. `web`, `production`) |
 
+Additive — existing tags on the VM are preserved. Uses
+`POST /api/v1/fabric/virtual-machines?action=add_tags` with body
+`{"external_id", "tags"}`.
+
 ---
 
 ## `traceflow` — Packet Tracing
@@ -162,6 +178,12 @@ vmware-nsx-security traceflow run <src-lport-id> \
 | `--proto` | TCP | Protocol: TCP, UDP, or ICMP |
 | `--dst-port` | 80 | Destination port (TCP/UDP) |
 
+Output: `operation_state` (`IN_PROGRESS` / `FINISHED` / `FAILED`),
+`observations` discriminated by `resource_type` (e.g.
+`TraceflowObservationForwarded`, `TraceflowObservationDroppedLogical` —
+Dropped* entries carry `reason` and `acl_rule_id`), and a `dfw_hits`
+summary of observations that matched a DFW rule.
+
 ---
 
 ## `idps` — IDPS Operations
@@ -174,11 +196,15 @@ vmware-nsx-security idps profiles [--target <name>]
 ```
 
 ### `idps status`
-Get IDPS engine status.
+Get IDPS signature status and global IDS settings.
 
 ```bash
 vmware-nsx-security idps status [--target <name>]
 ```
+
+Output: `signature_status` (scalar fields of the signature bundle status
+resource — field names vary by NSX release) and `settings`
+(`auto_update`, `ids_events_to_syslog`).
 
 ---
 

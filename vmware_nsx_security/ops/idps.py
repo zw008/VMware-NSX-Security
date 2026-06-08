@@ -1,12 +1,13 @@
 """IDPS (Intrusion Detection and Prevention System) query operations.
 
 NSX IDPS provides network-layer intrusion detection with optional inline
-prevention mode. This module provides read-only access to IDPS profiles
-and engine status.
+prevention mode. This module provides read-only access to IDPS profiles,
+signature status, and global IDS settings.
 
 APIs used:
   GET /policy/api/v1/infra/settings/firewall/security/intrusion-services/profiles
-  GET /policy/api/v1/infra/settings/firewall/security/intrusion-services/status
+  GET /policy/api/v1/infra/settings/firewall/security/intrusion-services/signatures/status
+  GET /policy/api/v1/infra/settings/firewall/security/intrusion-services
 """
 
 from __future__ import annotations
@@ -35,74 +36,101 @@ def list_idps_profiles(client: NsxClient) -> list[dict]:
     IDPS profiles define which signature sets and actions (detect/prevent)
     are active. Each profile can be applied to one or more DFW policies.
 
+    Profile ``criteria`` is polymorphic: ``IdsProfileFilterCriteria`` items
+    (``filter_name`` of ATTACK_TYPE / ATTACK_TARGET / CVSS /
+    PRODUCT_AFFECTED with a ``filter_value`` list) interleaved with
+    ``IdsProfileConjunctionOperator`` entries. Conjunction entries are
+    always AND and are skipped in the parsed output.
+
     Args:
         client: Authenticated NsxClient instance.
 
     Returns:
         List of IDPS profile summary dicts with id, display_name,
-        overridden signature counts, and criteria.
+        criteria (filter_name/filter_value pairs), profile_severity
+        (comma-joined), and overridden_signature_count.
     """
     items = client.get_all(f"{_IDPS_BASE}/profiles")
-    return [
-        {
-            "id": sanitize(p.get("id", "")),
-            "display_name": sanitize(p.get("display_name", "")),
-            "description": sanitize(p.get("description", "")),
-            "criteria": [
+    profiles: list[dict] = []
+    for p in items:
+        criteria: list[dict] = []
+        for c in p.get("criteria", []):
+            if c.get("resource_type") == "IdsProfileConjunctionOperator":
+                continue  # implicit AND between filter criteria
+            criteria.append(
                 {
-                    "attack_types": c.get("attack_types", []),
-                    "attack_targets": c.get("attack_targets", []),
-                    "cvss": c.get("cvss", {}),
-                    "products_affected": c.get("products_affected", []),
+                    "filter_name": sanitize(c.get("filter_name", "")),
+                    "filter_value": c.get("filter_value", []),
                 }
-                for c in p.get("criteria", [])
-            ],
-            "profile_severity": sanitize(p.get("profile_severity", "")),
-            "overridden_signature_count": p.get("overridden_signature_count", 0),
-            "path": sanitize(p.get("path", "")),
-        }
-        for p in items
-    ]
+            )
+
+        # profile_severity is an ARRAY in the API (e.g. ["HIGH", "CRITICAL"])
+        severity = p.get("profile_severity", [])
+        if isinstance(severity, str):
+            severity = [severity]
+
+        overridden = p.get("overridden_signatures")
+        overridden_count = len(overridden) if isinstance(overridden, list) else 0
+
+        profiles.append(
+            {
+                "id": sanitize(p.get("id", "")),
+                "display_name": sanitize(p.get("display_name", "")),
+                "description": sanitize(p.get("description", "")),
+                "criteria": criteria,
+                "profile_severity": sanitize(",".join(severity)),
+                "overridden_signature_count": overridden_count,
+                "path": sanitize(p.get("path", "")),
+            }
+        )
+    return profiles
 
 
 # ---------------------------------------------------------------------------
-# IDPS Engine Status
+# IDPS Signature Status + Settings
 # ---------------------------------------------------------------------------
 
 
 def get_idps_status(client: NsxClient) -> dict:
-    """Get the current IDPS engine status across all transport nodes.
+    """Get IDPS signature status and global IDS settings.
 
-    Returns engine enable/disable state, signature version, last update
-    time, and per-node status summary.
+    Reads two real Policy API resources:
+
+    * ``GET .../intrusion-services/signatures/status`` — signature bundle
+      version / download / update status. Field names vary across NSX
+      releases, so all scalar fields are passed through defensively
+      (sanitized, stringified) rather than parsing an assumed schema.
+    * ``GET .../intrusion-services`` — IdsSettings: ``auto_update``
+      (automatic signature updates) and ``ids_events_to_syslog``.
+
+    Errors are NOT swallowed here — they propagate so the MCP/CLI layer
+    can surface the standard {"error", "hint"} payload.
 
     Args:
         client: Authenticated NsxClient instance.
 
     Returns:
-        Dict with global_status (ENABLED/DISABLED), signature_version,
-        last_signature_update, and node_status_counts.
+        Dict with 'signature_status' (scalar fields of the signature
+        status resource) and 'settings' (auto_update,
+        ids_events_to_syslog).
     """
-    try:
-        status = client.get(f"{_IDPS_BASE}/status")
-    except Exception as exc:
-        _log.warning("Failed to fetch IDPS global status: %s", exc)
-        status = {}
+    sig_status_raw = client.get(f"{_IDPS_BASE}/signatures/status")
+    settings_raw = client.get(_IDPS_BASE)
 
-    # Per-node status summary
-    node_counts: dict[str, int] = {}
-    try:
-        node_data = client.get(f"{_IDPS_BASE}/node-status")
-        for node in node_data.get("results", []):
-            state = sanitize(node.get("node_status", "UNKNOWN"))
-            node_counts[state] = node_counts.get(state, 0) + 1
-    except Exception as exc:
-        _log.debug("Could not fetch per-node IDPS status: %s", exc)
+    # Defensive parse: keep scalar fields only, sanitized. Exact field
+    # names (e.g. signature version / update state) differ across NSX
+    # versions and are not all documented, so we pass them through
+    # instead of inventing a fixed schema.
+    signature_status = {
+        k: sanitize(str(v))
+        for k, v in sig_status_raw.items()
+        if isinstance(v, (str, int, float, bool)) and not k.startswith("_")
+    }
 
     return {
-        "global_status": sanitize(status.get("status", "UNKNOWN")),
-        "signature_version": sanitize(str(status.get("signature_version", ""))),
-        "last_signature_update": sanitize(str(status.get("last_signature_update_time", ""))),
-        "signatures_up_to_date": status.get("signatures_up_to_date", False),
-        "node_status_counts": node_counts,
+        "signature_status": signature_status,
+        "settings": {
+            "auto_update": bool(settings_raw.get("auto_update", False)),
+            "ids_events_to_syslog": bool(settings_raw.get("ids_events_to_syslog", False)),
+        },
     }

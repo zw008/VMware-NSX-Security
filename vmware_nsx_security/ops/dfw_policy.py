@@ -19,6 +19,10 @@ _log = logging.getLogger("vmware-nsx-security.dfw_policy")
 
 _DFW_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 
+# DFW evaluation order: Ethernet → Emergency → Infrastructure →
+# Environment → Application
+_VALID_CATEGORIES = {"Ethernet", "Emergency", "Infrastructure", "Environment", "Application"}
+
 
 def _validate_id(value: str, field: str = "id") -> str:
     """Validate that an ID contains only safe characters.
@@ -122,16 +126,26 @@ def create_dfw_policy(
         client: Authenticated NsxClient instance.
         policy_id: Unique policy ID (alphanumeric + hyphens).
         display_name: Human-readable policy name.
-        category: Policy category — one of Emergency, Infrastructure,
-            Environment, Application (default: Application).
+        category: Policy category — one of Ethernet, Emergency,
+            Infrastructure, Environment, Application (default: Application).
         sequence_number: Priority order (lower = higher priority).
         stateful: Whether the firewall tracks connection state (default True).
         description: Optional description string.
 
     Returns:
         Created policy dict as returned by the API.
+
+    Raises:
+        ValueError: If policy_id or category is invalid.
     """
     _validate_id(policy_id, "policy_id")
+    if category not in _VALID_CATEGORIES:
+        raise ValueError(
+            f"Invalid category '{category}'. Must be one of: Ethernet, "
+            "Emergency, Infrastructure, Environment, Application. "
+            "Categories control DFW evaluation order (Ethernet first, "
+            "Application last); most app rules belong in Application."
+        )
     body: dict[str, Any] = {
         "display_name": sanitize(display_name),
         "category": category,

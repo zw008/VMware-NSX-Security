@@ -125,11 +125,15 @@ def create_group(
     """Create a security group with optional membership criteria.
 
     Membership criteria are applied in order:
-    1. If ``tag_scope`` and/or ``tag_value`` provided — VM tag condition.
+    1. If ``tag_scope`` and/or ``tag_value`` provided — VM tag condition
+       (Policy Condition with pipe-delimited ``value`` of "scope|tag").
     2. If ``ip_addresses`` provided — IPAddressExpression.
     3. If ``segment_paths`` provided — PathExpression for segments.
 
-    Multiple criteria are ANDed together via a ``ConjunctionOperator``.
+    Multiple criteria are joined with OR ``ConjunctionOperator`` entries:
+    NSX only permits AND between Conditions of the same member type, so
+    heterogeneous expression types (Condition vs IPAddressExpression vs
+    PathExpression) must be ORed.
 
     Args:
         client: Authenticated NsxClient instance.
@@ -149,22 +153,24 @@ def create_group(
     expressions: list[dict[str, Any]] = []
 
     if tag_scope or tag_value:
+        # Policy Condition tag matching uses a single pipe-delimited
+        # "scope|tag" value string; empty scope → "|tag".
         tag_expr: dict[str, Any] = {
             "resource_type": "Condition",
             "member_type": "VirtualMachine",
             "key": "Tag",
             "operator": "EQUALS",
+            "value": f"{sanitize(tag_scope) if tag_scope else ''}|{sanitize(tag_value or '')}",
         }
         if tag_scope:
             tag_expr["scope_operator"] = "EQUALS"
-            tag_expr["tag"] = {"scope": sanitize(tag_scope), "tag": sanitize(tag_value or "")}
-        else:
-            tag_expr["tag"] = {"tag": sanitize(tag_value or "")}
         expressions.append(tag_expr)
 
+    # NSX only allows AND between same-member-type Conditions. The
+    # criteria below are different expression types, so join with OR.
     if ip_addresses:
         if expressions:
-            expressions.append({"resource_type": "ConjunctionOperator", "conjunction_operator": "AND"})
+            expressions.append({"resource_type": "ConjunctionOperator", "conjunction_operator": "OR"})
         expressions.append({
             "resource_type": "IPAddressExpression",
             "ip_addresses": ip_addresses,
@@ -172,7 +178,7 @@ def create_group(
 
     if segment_paths:
         if expressions:
-            expressions.append({"resource_type": "ConjunctionOperator", "conjunction_operator": "AND"})
+            expressions.append({"resource_type": "ConjunctionOperator", "conjunction_operator": "OR"})
         expressions.append({
             "resource_type": "PathExpression",
             "paths": segment_paths,
@@ -193,8 +199,10 @@ def create_group(
 def delete_group(client: NsxClient, group_id: str) -> dict[str, str]:
     """Delete a security group after checking for DFW policy references.
 
-    Refuses deletion if the group is referenced by any DFW rule
-    as a source or destination, to prevent breaking active security policies.
+    Refuses deletion if the group is referenced by any DFW rule as a
+    source, destination, or applied-to scope, or by a policy-level scope,
+    to prevent breaking active security policies. If the reference scan
+    itself fails, deletion is aborted rather than proceeding blind.
 
     Args:
         client: Authenticated NsxClient instance.
@@ -204,14 +212,16 @@ def delete_group(client: NsxClient, group_id: str) -> dict[str, str]:
         Dict with 'status' and 'message' keys on success.
 
     Raises:
-        ValueError: If the group is referenced by DFW rules.
+        ValueError: If the group is referenced by DFW policies/rules, or
+            if the reference scan could not be completed.
     """
     _validate_id(group_id, "group_id")
 
     # Build the path that would appear in DFW rules
     group_path = f"/infra/domains/default/groups/{group_id}"
 
-    # Check for references in all policies
+    # Check for references in all policies (rule source/destination,
+    # rule applied-to scope, and policy-level applied-to scope).
     referencing_rules: list[str] = []
     try:
         policies = client.get_all(_DFW_POLICIES_BASE)
@@ -219,21 +229,30 @@ def delete_group(client: NsxClient, group_id: str) -> dict[str, str]:
             policy_id = policy.get("id", "")
             if not policy_id:
                 continue
+            if group_path in policy.get("scope", []):
+                referencing_rules.append(f"{policy_id} (policy scope)")
             rules = client.get_all(f"{_DFW_POLICIES_BASE}/{policy_id}/rules")
             for rule in rules:
-                sources = rule.get("source_groups", [])
-                destinations = rule.get("destination_groups", [])
-                if group_path in sources or group_path in destinations:
+                if (
+                    group_path in rule.get("source_groups", [])
+                    or group_path in rule.get("destination_groups", [])
+                    or group_path in rule.get("scope", [])
+                ):
                     referencing_rules.append(
                         f"{policy_id}/{rule.get('id', 'unknown')}"
                     )
     except Exception as exc:
-        _log.warning("Could not fully check group references: %s", exc)
+        raise ValueError(
+            f"Cannot delete group '{group_id}': the DFW reference scan "
+            f"failed ({exc}). Refusing to delete a group that may still be "
+            "in use. Verify NSX connectivity (run 'vmware-nsx-security "
+            "doctor') and retry."
+        ) from exc
 
     if referencing_rules:
         raise ValueError(
             f"Cannot delete group '{group_id}': referenced by {len(referencing_rules)} "
-            f"DFW rule(s): {referencing_rules}. Remove the references first."
+            f"DFW policy/rule reference(s): {referencing_rules}. Remove the references first."
         )
 
     client.delete(f"{_GROUPS_BASE}/{group_id}")

@@ -6,8 +6,12 @@ to dynamically include or exclude VMs from firewall policies.
 
 APIs used:
   GET  /api/v1/fabric/virtual-machines?display_name=<name>
-  POST /api/v1/fabric/tags/tag?action=add_tag
-  POST /api/v1/fabric/tags/tag?action=remove_tag
+  POST /api/v1/fabric/virtual-machines?action=add_tags
+  POST /api/v1/fabric/virtual-machines?action=remove_tags
+
+Note: these Manager (MP) API endpoints are deprecated in NSX 3.x/4.x but
+remain functional. The Policy API successor is
+POST /policy/api/v1/infra/realized-state/enforcement-points/<ep>/virtual-machines?action=update_tags.
 """
 
 from __future__ import annotations
@@ -83,8 +87,9 @@ def apply_vm_tag(
 ) -> dict:
     """Apply an NSX tag to a virtual machine.
 
-    Uses POST /api/v1/fabric/tags/tag?action=add_tag. The tag is
-    added non-destructively — existing tags on the VM are preserved.
+    Uses POST /api/v1/fabric/virtual-machines?action=add_tags with body
+    {"external_id", "tags"} (returns 204 No Content). The tag is added
+    non-destructively — existing tags on the VM are preserved.
 
     Args:
         client: Authenticated NsxClient instance.
@@ -97,7 +102,6 @@ def apply_vm_tag(
     """
     body: dict[str, Any] = {
         "external_id": vm_id,
-        "resource_type": "VirtualMachine",
         "tags": [
             {
                 "scope": sanitize(tag_scope),
@@ -105,7 +109,7 @@ def apply_vm_tag(
             }
         ],
     }
-    client.post("/api/v1/fabric/tags/tag?action=add_tag", body)
+    client.post("/api/v1/fabric/virtual-machines?action=add_tags", body)
     _log.info("Applied tag %s=%s to VM %s", tag_scope, tag_value, vm_id)
     return {
         "status": "applied",
@@ -123,7 +127,8 @@ def remove_vm_tag(
 ) -> dict:
     """Remove an NSX tag from a virtual machine.
 
-    Uses POST /api/v1/fabric/tags/tag?action=remove_tag.
+    Uses POST /api/v1/fabric/virtual-machines?action=remove_tags with body
+    {"external_id", "tags"} (returns 204 No Content).
 
     Args:
         client: Authenticated NsxClient instance.
@@ -136,7 +141,6 @@ def remove_vm_tag(
     """
     body: dict[str, Any] = {
         "external_id": vm_id,
-        "resource_type": "VirtualMachine",
         "tags": [
             {
                 "scope": sanitize(tag_scope),
@@ -144,7 +148,7 @@ def remove_vm_tag(
             }
         ],
     }
-    client.post("/api/v1/fabric/tags/tag?action=remove_tag", body)
+    client.post("/api/v1/fabric/virtual-machines?action=remove_tags", body)
     _log.info("Removed tag %s=%s from VM %s", tag_scope, tag_value, vm_id)
     return {
         "status": "removed",

@@ -23,10 +23,13 @@ NSX DFW policies are evaluated in category order (lower category = higher priori
 
 | Category | Priority | Typical Use |
 |----------|:--------:|-------------|
-| Emergency | 1 | Incident response — block specific IPs or VMs immediately |
-| Infrastructure | 2 | DNS, NTP, vCenter management traffic |
-| Environment | 3 | Cross-environment rules (e.g. prod → lab) |
-| Application | 4 | Application-tier microsegmentation (most common) |
+| Ethernet | 1 | Layer-2 rules (MAC-based) |
+| Emergency | 2 | Incident response — block specific IPs or VMs immediately |
+| Infrastructure | 3 | DNS, NTP, vCenter management traffic |
+| Environment | 4 | Cross-environment rules (e.g. prod → lab) |
+| Application | 5 | Application-tier microsegmentation (most common) |
+
+`create_dfw_policy` validates the category and rejects anything outside this set.
 
 ## DFW Rule Actions
 
@@ -35,11 +38,18 @@ NSX DFW policies are evaluated in category order (lower category = higher priori
 | ALLOW | Permit the traffic |
 | DROP | Silently discard the packet (no RST/ICMP) |
 | REJECT | Discard + send TCP RST or ICMP unreachable |
-| JUMP_TO_APPLICATION | Skip to Application category rules |
+| JUMP_TO_APPLICATION | Skip to Application category rules — only valid in policies whose category is Environment |
+
+## DFW Rule Statistics Fields
+
+`get_dfw_rule_stats` aggregates the per-enforcement-point `RuleStatistics`
+array: `packet_count`, `byte_count`, `session_count`, `hit_count` (summed)
+and `popularity_index` (max). There is no `population_count` field in the
+NSX API.
 
 ## Security Group Expression Types
 
-Groups support three membership condition types (ANDed together):
+Groups support three membership condition types:
 
 | Type | Parameter | Example |
 |------|-----------|---------|
@@ -47,24 +57,56 @@ Groups support three membership condition types (ANDed together):
 | IP Address | `ip_addresses` | ['10.0.1.0/24', '10.0.2.5'] |
 | Segment Path | `segment_paths` | ['/infra/segments/web-seg'] |
 
-Multiple criteria in one group are ANDed (VM must match ALL conditions).
+The tag Condition is sent as a Policy `Condition` with a pipe-delimited
+`value` of `"scope|tag"` (e.g. `tier|web`; tag-only matching uses `"|tag"`).
+
+Multiple criteria in one group are **ORed** (VM matches ANY condition):
+NSX only permits AND between Conditions of the same member type, so
+heterogeneous expression types (Condition vs IPAddressExpression vs
+PathExpression) must join with OR.
 
 ## Traceflow Packet Types
 
-| Protocol | Fields | Notes |
-|----------|--------|-------|
-| TCP | src_ip, dst_ip, src_port, dst_port, TTL | SYN flag set automatically |
-| UDP | src_ip, dst_ip, src_port, dst_port, TTL | |
-| ICMP | src_ip, dst_ip, TTL | Echo request (type 8) |
+The probe is a `FieldsPacketData` with nested `ip_header` (src_ip, dst_ip,
+ttl, protocol number) and `transport_header`; `transport_type` is the L2
+delivery mode (`UNICAST`), not the protocol.
+
+| Protocol | transport_header | Notes |
+|----------|------------------|-------|
+| TCP | `tcp_header` (src_port, dst_port) | SYN flag set automatically |
+| UDP | `udp_header` (src_port, dst_port) | |
+| ICMP | `icmp_echo_request_header` | Echo request |
+
+Completion is polled via `operation_state`: `IN_PROGRESS` → `FINISHED`
+or `FAILED`.
 
 ## Traceflow Observation Types
 
-| Type | Meaning |
-|------|---------|
-| FORWARDED | Packet forwarded to next hop |
-| DROPPED | Packet dropped at this component (see `reason` + `acl_rule_id`) |
-| DELIVERED | Packet delivered to destination |
-| RECEIVED | Packet received at destination VM |
+Observations are discriminated by `resource_type`:
+
+| resource_type | Meaning |
+|---------------|---------|
+| TraceflowObservationForwarded | Packet forwarded to next hop |
+| TraceflowObservationDropped / TraceflowObservationDroppedLogical | Packet dropped at this component (carries `reason` + `acl_rule_id`) |
+| TraceflowObservationDelivered | Packet delivered to destination |
+| TraceflowObservationReceived | Packet received at a component |
+
+Any observation carrying an `acl_rule_id` (forwarded or dropped by a DFW
+rule) is also summarised in the `dfw_hits` list of the result.
+
+## IDPS Status Output
+
+`get_idps_status` reads two Policy API resources and returns:
+
+- `signature_status` — scalar fields of the signature bundle status
+  resource (e.g. version / update state; exact field names vary by NSX
+  release, so scalars are passed through as-is)
+- `settings` — `auto_update` (automatic signature updates) and
+  `ids_events_to_syslog` from the global IdsSettings resource
+
+IDPS profile `criteria` are polymorphic `filter_name`/`filter_value`
+pairs (ATTACK_TYPE, ATTACK_TARGET, CVSS, PRODUCT_AFFECTED); conjunction
+entries between them are always AND and are omitted from parsed output.
 
 ## IDPS Severity Levels
 
@@ -108,14 +150,15 @@ Best practice for NSX tag design:
 | Delete group | DELETE | /policy/api/v1/infra/domains/default/groups/{id} |
 | Group members (VMs) | GET | /policy/api/v1/infra/domains/default/groups/{id}/members/virtual-machines |
 | List VM tags | GET | /api/v1/fabric/virtual-machines?display_name={name} |
-| Apply tag | POST | /api/v1/fabric/tags/tag?action=add_tag |
-| Remove tag | POST | /api/v1/fabric/tags/tag?action=remove_tag |
+| Apply tag | POST | /api/v1/fabric/virtual-machines?action=add_tags |
+| Remove tag | POST | /api/v1/fabric/virtual-machines?action=remove_tags |
 | Create traceflow | POST | /api/v1/traceflows |
 | Get traceflow | GET | /api/v1/traceflows/{id} |
 | Traceflow observations | GET | /api/v1/traceflows/{id}/observations |
 | Delete traceflow | DELETE | /api/v1/traceflows/{id} |
 | IDPS profiles | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services/profiles |
-| IDPS status | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services/status |
+| IDPS signature status | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services/signatures/status |
+| IDPS settings | GET | /policy/api/v1/infra/settings/firewall/security/intrusion-services |
 
 ## NSX Version Compatibility
 
