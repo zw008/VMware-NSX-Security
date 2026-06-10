@@ -38,12 +38,30 @@ from typing import Any, Optional
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import vmware_tool
 
+from vmware_policy import sanitize
 from vmware_nsx_security.config import load_config
 from vmware_nsx_security.connection import ConnectionManager
 from vmware_nsx_security.notify.audit import AuditLogger
 
 logger = logging.getLogger(__name__)
 _audit = AuditLogger()
+
+_DOCTOR_HINT = "Run 'vmware-nsx-security doctor' to verify connectivity."
+
+
+def _safe_error(exc: Exception, tool: str) -> str:
+    """Return an agent-safe error string; log full detail server-side only.
+
+    Raw exception text from NSX can carry response bodies, internal paths, or
+    host:port pairs. We log the full traceback to stderr (operator-visible) and
+    return only a control-char-stripped, length-capped message to the agent.
+    ``ValueError`` is treated as an intentional, user-facing validation message
+    (e.g. "policy has active rules"); other exceptions get a generic message.
+    """
+    logger.error("Tool %s failed", tool, exc_info=True)
+    if isinstance(exc, (ValueError, FileNotFoundError, KeyError)):
+        return sanitize(str(exc), 300)
+    return f"{type(exc).__name__}: operation failed."
 
 mcp = FastMCP(
     "vmware-nsx-security",
@@ -97,7 +115,7 @@ def list_dfw_policies(target: Optional[str] = None) -> list[dict]:
         client = _get_connection(target)
         return _fn(client)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -115,7 +133,7 @@ def get_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
         client = _get_connection(target)
         return _fn(client, policy_id)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -136,7 +154,7 @@ def list_dfw_rules(policy_id: str, target: Optional[str] = None) -> list[dict]:
         client = _get_connection(target)
         return _fn(client, policy_id)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -162,7 +180,7 @@ def get_dfw_rule_stats(
         client = _get_connection(target)
         return _fn(client, policy_id, rule_id)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -212,7 +230,7 @@ def create_dfw_policy(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -252,7 +270,7 @@ def update_dfw_policy(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -280,7 +298,7 @@ def delete_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -371,7 +389,7 @@ def create_dfw_rule(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -425,7 +443,7 @@ def update_dfw_rule(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -467,7 +485,7 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: Optional[str] = None) 
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -491,7 +509,7 @@ def list_groups(target: Optional[str] = None) -> list[dict]:
         client = _get_connection(target)
         return _fn(client)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -511,7 +529,7 @@ def get_group(group_id: str, target: Optional[str] = None) -> dict:
         client = _get_connection(target)
         return _fn(client, group_id)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -570,7 +588,7 @@ def create_group(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -599,7 +617,7 @@ def delete_group(group_id: str, target: Optional[str] = None) -> dict:
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -625,7 +643,7 @@ def list_vm_tags(vm_display_name: str, target: Optional[str] = None) -> dict:
         client = _get_connection(target)
         return _fn(client, vm_display_name)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -666,7 +684,7 @@ def apply_vm_tag(
         )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -717,7 +735,7 @@ def run_traceflow(
             src_port=src_port, ttl=ttl, timeout_seconds=timeout_seconds,
         )
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -740,7 +758,7 @@ def get_traceflow_result(traceflow_id: str, target: Optional[str] = None) -> dic
         client = _get_connection(target)
         return _fn(client, traceflow_id)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -766,7 +784,7 @@ def list_idps_profiles(target: Optional[str] = None) -> list[dict]:
         client = _get_connection(target)
         return _fn(client)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -787,7 +805,7 @@ def get_idps_status(target: Optional[str] = None) -> dict:
         client = _get_connection(target)
         return _fn(client)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-nsx-security doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
 
 
 # ---------------------------------------------------------------------------

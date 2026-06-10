@@ -161,11 +161,12 @@ def run_traceflow(
     except Exception as exc:
         _log.warning("Failed to fetch traceflow observations for %s: %s", tf_id, exc)
 
-    # Clean up
+    # Clean up — best-effort; a failed delete leaves a transient traceflow that
+    # NSX ages out on its own, but log it so resource leaks are visible.
     try:
         client.delete(f"/api/v1/traceflows/{tf_id}")
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.debug("Failed to clean up traceflow %s: %s", tf_id, exc)
 
     return {
         "traceflow_id": tf_id,

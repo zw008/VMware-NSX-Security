@@ -1,3 +1,12 @@
+## v1.5.35 (2026-06-10) — security hardening: safe errors
+
+### Fixed
+- **MCP tools route errors through `_safe_error()`** — full detail to the server log, a
+  sanitized message to the agent. Closes raw-exception leakage across all 20 tools.
+- **Traceflow cleanup** failure now logs instead of silently passing.
+
+This release aligns the whole family back to a single version (1.5.35); vmware-policy and vmware-pilot return to the shared number after sitting at 1.5.22.
+
 ## v1.5.32 (2026-06-08) — VM tagging, IDPS status, and Traceflow rewritten to real NSX APIs
 
 A family-wide spec audit found three features calling invented endpoints or
