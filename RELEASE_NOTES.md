@@ -1,3 +1,19 @@
+## v1.5.36 (2026-06-12) — error translation, tag-remove parity, audit completeness
+
+### Fixed
+- **404/5xx no longer surface as tracebacks/opaque errors** — `NsxApiError` + central `_request()`
+  (mirrors VMware-NSX): teaching hints, GET-only retry-once on transient 5xx, re-auth once on 401
+  only (403 = permission error, writes never blindly re-sent).
+- **Traceflow no longer deletes an in-progress trace** it just returned the id for; poll budget now
+  honors the requested timeout (was silently capped at 30s / 0 polls).
+- **Failed write attempts are now audited** (`result="error"`), not just successes.
+- `get_group` reports `members_error` instead of a misleading `member_count: 0` on a fetch failure.
+
+### Added
+- **`tag remove`** CLI command + **`remove_vm_tag`** MCP tool — VM tags could be applied but never
+  removed, so a mistagged VM couldn't be remediated. Tool count is now **21 (10 read / 11 write)**.
+- Shared `ops/_validate.py` (deduped the id validators); CLI teaching-error decorator.
+
 ## v1.5.35 (2026-06-10) — security hardening: safe errors
 
 ### Fixed

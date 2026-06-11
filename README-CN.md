@@ -4,7 +4,7 @@
 > 本项目由 VMware 工程师维护的社区项目，非 VMware 官方产品。
 > VMware 官方开发者工具请访问 [developer.broadcom.com](https://developer.broadcom.com)。
 
-VMware NSX DFW 微分段与安全管理 MCP skill — 20 个工具，涵盖分布式防火墙策略与规则、安全组、VM 标签、Traceflow 数据包追踪和 IDPS。
+VMware NSX DFW 微分段与安全管理 MCP skill — 21 个工具，涵盖分布式防火墙策略与规则、安全组、VM 标签、Traceflow 数据包追踪和 IDPS。
 
 > **配套 skill**：[vmware-nsx](https://github.com/zw008/VMware-NSX)（网络）、[vmware-aiops](https://github.com/zw008/VMware-AIops)（VM 生命周期）、[vmware-monitor](https://github.com/zw008/VMware-Monitor)（监控）
 
@@ -30,11 +30,11 @@ vmware-nsx-security doctor
 | DFW 策略 | 列出、获取、创建、更新、删除、列出规则（6 个） |
 | DFW 规则 | 创建、更新、删除、统计（4 个） |
 | 安全组 | 列出、获取、创建、删除（4 个） |
-| VM 标签 | 列出标签、应用标签（2 个） |
+| VM 标签 | 列出标签、应用标签、移除标签（3 个） |
 | Traceflow | 运行追踪、获取结果（2 个） |
 | IDPS | 列出 Profile、签名状态 + 全局设置（2 个） |
 
-**共 20 个 MCP 工具**（10 只读 + 10 写入）
+**共 21 个 MCP 工具**（10 只读 + 11 写入）
 
 ## MCP 服务器配置
 

@@ -8,10 +8,11 @@ Covers individual rule management under a security policy:
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
+
+from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
@@ -23,16 +24,6 @@ _DFW_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 _VALID_ACTIONS = {"ALLOW", "DROP", "REJECT", "JUMP_TO_APPLICATION"}
 _VALID_DIRECTIONS = {"IN", "OUT", "IN_OUT"}
 _VALID_IP_PROTOS = {"IPV4", "IPV6", "IPV4_IPV6"}
-
-
-def _validate_id(value: str, field: str = "id") -> str:
-    """Validate that an ID contains only safe characters."""
-    if not re.match(r"^[\w\-\.]+$", value):
-        raise ValueError(
-            f"Invalid {field} '{value}': only alphanumerics, hyphens, "
-            "underscores, and dots are allowed."
-        )
-    return value
 
 
 # ---------------------------------------------------------------------------

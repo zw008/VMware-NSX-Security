@@ -59,6 +59,50 @@ DryRunOption = Annotated[
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
+def _cli_errors(fn):
+    """Translate known errors into a red one-liner + exit code 1.
+
+    Catches the connection layer's teaching ``NsxApiError`` plus common
+    local failures (missing config file, bad lookup key, OS errors) so CLI
+    users see an actionable message instead of a raw traceback. Unknown
+    exceptions still propagate with a full traceback for debugging.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        from vmware_nsx_security.connection import NsxApiError
+
+        try:
+            return fn(*args, **kwargs)
+        except (NsxApiError, FileNotFoundError, KeyError, OSError, ValueError) as exc:
+            # KeyError reprs its message with quotes — unwrap for display.
+            msg = exc.args[0] if isinstance(exc, KeyError) and exc.args else str(exc)
+            console.print(f"[bold red]Error:[/] {msg}")
+            raise typer.Exit(1) from exc
+
+    return wrapper
+
+
+def _audit_write(target: str, operation: str, resource: str,
+                 parameters: dict | None = None):
+    """Run a write call auditing both outcomes (success-only audit was a gap)."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def _ctx():
+        try:
+            yield
+        except BaseException:
+            _audit.log(target=target, operation=operation, resource=resource,
+                       parameters=parameters, result="error")
+            raise
+        _audit.log(target=target, operation=operation, resource=resource,
+                   parameters=parameters, result="ok")
+
+    return _ctx()
+
+
 def _get_connection(target: str | None, config_path: Path | None = None):
     """Return (NsxClient, AppConfig)."""
     from vmware_nsx_security.config import load_config
@@ -116,6 +160,7 @@ def _confirm_destructive(resource_type: str, resource_id: str) -> bool:
 
 
 @policy_app.command("list")
+@_cli_errors
 def policy_list(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -147,6 +192,7 @@ def policy_list(
 
 
 @policy_app.command("get")
+@_cli_errors
 def policy_get(
     policy_id: str = typer.Argument(..., help="Policy ID"),
     target: TargetOption = None,
@@ -161,6 +207,7 @@ def policy_get(
 
 
 @policy_app.command("create")
+@_cli_errors
 def policy_create(
     policy_id: str = typer.Argument(..., help="Policy ID"),
     display_name: str = typer.Option(..., "--name", help="Display name"),
@@ -186,16 +233,17 @@ def policy_create(
         return
 
     client, _ = _get_connection(target, config)
-    result = create_dfw_policy(
-        client, policy_id, display_name,
-        category=category, sequence_number=sequence_number, description=description,
-    )
-    _audit.log(target=t, operation="create_dfw_policy", resource=policy_id, result="ok")
+    with _audit_write(t, "create_dfw_policy", policy_id):
+        result = create_dfw_policy(
+            client, policy_id, display_name,
+            category=category, sequence_number=sequence_number, description=description,
+        )
     console.print(f"[green]Created DFW policy '{policy_id}'[/]")
     console.print_json(json.dumps(result))
 
 
 @policy_app.command("delete")
+@_cli_errors
 def policy_delete(
     policy_id: str = typer.Argument(..., help="Policy ID to delete"),
     dry_run: DryRunOption = False,
@@ -220,8 +268,8 @@ def policy_delete(
         raise typer.Exit(0)
 
     client, _ = _get_connection(target, config)
-    result = delete_dfw_policy(client, policy_id)
-    _audit.log(target=t, operation="delete_dfw_policy", resource=policy_id, result="ok")
+    with _audit_write(t, "delete_dfw_policy", policy_id):
+        result = delete_dfw_policy(client, policy_id)
     console.print(f"[green]{result['message']}[/]")
 
 
@@ -231,6 +279,7 @@ def policy_delete(
 
 
 @rule_app.command("list")
+@_cli_errors
 def rule_list(
     policy_id: str = typer.Argument(..., help="Parent policy ID"),
     target: TargetOption = None,
@@ -263,6 +312,7 @@ def rule_list(
 
 
 @rule_app.command("stats")
+@_cli_errors
 def rule_stats(
     policy_id: str = typer.Argument(..., help="Parent policy ID"),
     rule_id: str = typer.Argument(..., help="Rule ID"),
@@ -278,6 +328,7 @@ def rule_stats(
 
 
 @rule_app.command("delete")
+@_cli_errors
 def rule_delete(
     policy_id: str = typer.Argument(..., help="Parent policy ID"),
     rule_id: str = typer.Argument(..., help="Rule ID to delete"),
@@ -303,8 +354,8 @@ def rule_delete(
         raise typer.Exit(0)
 
     client, _ = _get_connection(target, config)
-    result = delete_dfw_rule(client, policy_id, rule_id)
-    _audit.log(target=t, operation="delete_dfw_rule", resource=f"{policy_id}/{rule_id}", result="ok")
+    with _audit_write(t, "delete_dfw_rule", f"{policy_id}/{rule_id}"):
+        result = delete_dfw_rule(client, policy_id, rule_id)
     console.print(f"[green]{result['message']}[/]")
 
 
@@ -314,6 +365,7 @@ def rule_delete(
 
 
 @group_app.command("list")
+@_cli_errors
 def group_list(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -341,6 +393,7 @@ def group_list(
 
 
 @group_app.command("get")
+@_cli_errors
 def group_get(
     group_id: str = typer.Argument(..., help="Group ID"),
     target: TargetOption = None,
@@ -355,6 +408,7 @@ def group_get(
 
 
 @group_app.command("delete")
+@_cli_errors
 def group_delete(
     group_id: str = typer.Argument(..., help="Group ID to delete"),
     dry_run: DryRunOption = False,
@@ -379,8 +433,8 @@ def group_delete(
         raise typer.Exit(0)
 
     client, _ = _get_connection(target, config)
-    result = delete_group(client, group_id)
-    _audit.log(target=t, operation="delete_group", resource=group_id, result="ok")
+    with _audit_write(t, "delete_group", group_id):
+        result = delete_group(client, group_id)
     console.print(f"[green]{result['message']}[/]")
 
 
@@ -390,6 +444,7 @@ def group_delete(
 
 
 @tag_app.command("list")
+@_cli_errors
 def tag_list(
     vm_name: str = typer.Argument(..., help="VM display name"),
     target: TargetOption = None,
@@ -411,6 +466,7 @@ def tag_list(
 
 
 @tag_app.command("apply")
+@_cli_errors
 def tag_apply(
     vm_id: str = typer.Argument(..., help="VM external ID"),
     scope: str = typer.Option(..., "--scope", help="Tag scope"),
@@ -434,12 +490,39 @@ def tag_apply(
         return
 
     client, _ = _get_connection(target, config)
-    result = apply_vm_tag(client, vm_id, scope, value)
-    _audit.log(
-        target=t, operation="apply_vm_tag", resource=vm_id,
-        parameters={"scope": scope, "tag": value}, result="ok",
-    )
+    with _audit_write(t, "apply_vm_tag", vm_id, {"scope": scope, "tag": value}):
+        apply_vm_tag(client, vm_id, scope, value)
     console.print(f"[green]Applied tag {scope}={value} to VM {vm_id}[/]")
+
+
+@tag_app.command("remove")
+@_cli_errors
+def tag_remove(
+    vm_id: str = typer.Argument(..., help="VM external ID"),
+    scope: str = typer.Option(..., "--scope", help="Tag scope to remove"),
+    value: str = typer.Option(..., "--value", help="Tag value to remove"),
+    dry_run: DryRunOption = False,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+) -> None:
+    """Remove an NSX tag from a VM."""
+    from vmware_nsx_security.ops.tags import remove_vm_tag
+
+    t = _resolve_target(target)
+    if dry_run:
+        _dry_run_print(
+            target=t,
+            resource=vm_id,
+            operation="remove_vm_tag",
+            api_call="POST /api/v1/fabric/virtual-machines?action=remove_tags",
+            parameters={"external_id": vm_id, "scope": scope, "tag": value},
+        )
+        return
+
+    client, _ = _get_connection(target, config)
+    with _audit_write(t, "remove_vm_tag", vm_id, {"scope": scope, "tag": value}):
+        remove_vm_tag(client, vm_id, scope, value)
+    console.print(f"[green]Removed tag {scope}={value} from VM {vm_id}[/]")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -448,6 +531,7 @@ def tag_apply(
 
 
 @traceflow_app.command("run")
+@_cli_errors
 def traceflow_run(
     src_lport: str = typer.Argument(..., help="Source logical port ID"),
     src_ip: str = typer.Option(..., "--src-ip", help="Source IP address"),
@@ -471,6 +555,7 @@ def traceflow_run(
 
 
 @idps_app.command("profiles")
+@_cli_errors
 def idps_profiles(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -498,6 +583,7 @@ def idps_profiles(
 
 
 @idps_app.command("status")
+@_cli_errors
 def idps_status(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -516,6 +602,7 @@ def idps_status(
 
 
 @app.command("doctor")
+@_cli_errors
 def doctor(
     skip_auth: bool = typer.Option(False, "--skip-auth", help="Skip authentication test"),
     config: ConfigOption = None,
@@ -528,6 +615,7 @@ def doctor(
 
 
 @app.command("mcp")
+@_cli_errors
 def mcp_cmd() -> None:
     """Start the MCP server (stdio transport).
 

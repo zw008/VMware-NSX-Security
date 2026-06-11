@@ -563,10 +563,10 @@ def test_jump_to_application_constraint_documented() -> None:
     assert "JUMP_TO_APPLICATION" in str(exc.value)
 
 
-# ── 踩坑 #34: MCP tool surface must match the declared 20 (10R/10W) ──────
+# ── 踩坑 #34: MCP tool surface must match the declared 21 (10R/11W) ──────
 
 
-def test_mcp_exposes_all_20_tools() -> None:
+def test_mcp_exposes_all_21_tools() -> None:
     import asyncio
 
     from mcp_server.server import mcp
@@ -591,7 +591,8 @@ def test_mcp_exposes_all_20_tools() -> None:
         "list_groups",
         "list_idps_profiles",
         "list_vm_tags",
+        "remove_vm_tag",
         "run_traceflow",
         "update_dfw_policy",
         "update_dfw_rule",
-    ], "MCP tool surface drifted from the declared 20 tools (10 read / 10 write)"
+    ], "MCP tool surface drifted from the declared 21 tools (10 read / 11 write)"

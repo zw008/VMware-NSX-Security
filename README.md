@@ -5,7 +5,7 @@
 > This is a community-driven project by a VMware engineer, not an official VMware product.
 > For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
 
-VMware NSX DFW microsegmentation and security MCP skill — 20 tools for distributed firewall policies/rules, security groups, VM tags, Traceflow packet tracing, and IDPS.
+VMware NSX DFW microsegmentation and security MCP skill — 21 tools for distributed firewall policies/rules, security groups, VM tags, Traceflow packet tracing, and IDPS.
 
 > **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (monitoring)
 
@@ -31,11 +31,11 @@ vmware-nsx-security doctor
 | DFW Policy | list, get, create, update, delete, list rules |
 | DFW Rules | create, update, delete, stats |
 | Security Groups | list, get, create, delete |
-| VM Tags | list tags, apply tag |
+| VM Tags | list tags, apply tag, remove tag |
 | Traceflow | run trace, get result |
 | IDPS | list profiles, signature status + settings |
 
-**Total: 20 MCP tools** (10 read-only + 10 write)
+**Total: 21 MCP tools** (10 read-only + 11 write)
 
 ## MCP Server Setup
 

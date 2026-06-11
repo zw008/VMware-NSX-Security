@@ -155,6 +155,27 @@ Additive — existing tags on the VM are preserved. Uses
 `POST /api/v1/fabric/virtual-machines?action=add_tags` with body
 `{"external_id", "tags"}`.
 
+### `tag remove`
+Remove an NSX tag from a VM (by external ID).
+
+```bash
+vmware-nsx-security tag remove <vm-external-id> \
+  --scope <scope> \
+  --value <value> \
+  [--dry-run] \
+  [--target <name>]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--scope` | Tag scope of the tag to remove |
+| `--value` | Tag value of the tag to remove |
+
+Removes only the exact scope/value pair; other tags are preserved. May
+change dynamic security group membership immediately. Uses
+`POST /api/v1/fabric/virtual-machines?action=remove_tags` with body
+`{"external_id", "tags"}`.
+
 ---
 
 ## `traceflow` — Packet Tracing

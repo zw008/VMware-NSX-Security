@@ -24,7 +24,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "NSX" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-NSX-Security](https://github.com/zw008/VMware-NSX-Security) under the MIT license.
 
-VMware NSX DFW microsegmentation and security — 20 MCP tools for distributed firewall, security groups, VM tags, Traceflow, and IDPS.
+VMware NSX DFW microsegmentation and security — 21 MCP tools for distributed firewall, security groups, VM tags, Traceflow, and IDPS.
 
 > Domain-focused security skill for NSX-T / NSX 4.x Policy API.
 > **Companion skills**: [vmware-nsx](https://github.com/zw008/VMware-NSX) (networking), [vmware-aiops](https://github.com/zw008/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/zw008/VMware-Monitor) (read-only monitoring), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/zw008/VMware-Harden) (compliance baselines).
@@ -37,11 +37,11 @@ VMware NSX DFW microsegmentation and security — 20 MCP tools for distributed f
 | **DFW Policy** | list, get, create, update, delete, list rules | 6 |
 | **DFW Rules** | create, update, delete, get stats | 4 |
 | **Security Groups** | list, get, create, delete | 4 |
-| **VM Tags** | list VM tags, apply tag | 2 |
+| **VM Tags** | list VM tags, apply tag, remove tag | 3 |
 | **Traceflow** | run trace, get result | 2 |
 | **IDPS** | list profiles, get status | 2 |
 
-**Total**: 20 tools (10 read-only + 10 write)
+**Total**: 21 tools (10 read-only + 11 write)
 
 ## Quick Install
 
@@ -146,7 +146,7 @@ vmware-nsx-security group list --target nsx-lab
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (20 — 10 read, 10 write)
+## MCP Tools (21 — 10 read, 11 write)
 
 All MCP tools accept an optional `target` parameter.
 
@@ -168,6 +168,7 @@ All MCP tools accept an optional `target` parameter.
 | | `delete_group` | Write | Delete group — refuses if referenced by DFW rules/scopes, or if the reference scan fails |
 | VM Tags | `list_vm_tags` | Read | List NSX tags on a VM by display name |
 | | `apply_vm_tag` | Write | Apply a scope/value tag to a VM (additive, preserves existing tags) |
+| | `remove_vm_tag` | Write | Remove a scope/value tag from a VM (other tags preserved; may change dynamic group membership) |
 | Traceflow | `run_traceflow` | Write | Inject probe packet; returns operation_state + hop-by-hop observations (by resource_type) + dfw_hits |
 | | `get_traceflow_result` | Read | Check operation_state/observations of an existing traceflow |
 | IDPS | `list_idps_profiles` | Read | List IDPS profiles with severity and filter criteria |
@@ -195,6 +196,7 @@ vmware-nsx-security group delete <group-id> [--dry-run]
 # Tags
 vmware-nsx-security tag list <vm-display-name>
 vmware-nsx-security tag apply <vm-external-id> --scope env --value production [--dry-run]
+vmware-nsx-security tag remove <vm-external-id> --scope env --value production [--dry-run]
 
 # Traceflow
 vmware-nsx-security traceflow run <lport-id> --src-ip &lt;src-ip&gt; --dst-ip &lt;dst-ip&gt;

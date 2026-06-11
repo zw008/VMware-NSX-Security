@@ -7,10 +7,11 @@ Covers NSX Distributed Firewall security policies via the Policy API:
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
+
+from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
@@ -22,29 +23,6 @@ _DFW_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 # DFW evaluation order: Ethernet → Emergency → Infrastructure →
 # Environment → Application
 _VALID_CATEGORIES = {"Ethernet", "Emergency", "Infrastructure", "Environment", "Application"}
-
-
-def _validate_id(value: str, field: str = "id") -> str:
-    """Validate that an ID contains only safe characters.
-
-    Allowed: alphanumerics, hyphens, underscores, dots.
-
-    Args:
-        value: The ID string to validate.
-        field: Field name for error messages.
-
-    Returns:
-        The validated ID string.
-
-    Raises:
-        ValueError: If the ID contains disallowed characters.
-    """
-    if not re.match(r"^[\w\-\.]+$", value):
-        raise ValueError(
-            f"Invalid {field} '{value}': only alphanumerics, hyphens, "
-            "underscores, and dots are allowed."
-        )
-    return value
 
 
 # ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ Tool categories
 
 * **Write** (mutate state): create_dfw_policy, update_dfw_policy,
   delete_dfw_policy, create_dfw_rule, update_dfw_rule, delete_dfw_rule,
-  create_group, delete_group, apply_vm_tag, run_traceflow
+  create_group, delete_group, apply_vm_tag, remove_vm_tag, run_traceflow
   — should be gated by the AI agent's confirmation flow.
 
 Security considerations
@@ -40,7 +40,7 @@ from vmware_policy import vmware_tool
 
 from vmware_policy import sanitize
 from vmware_nsx_security.config import load_config
-from vmware_nsx_security.connection import ConnectionManager
+from vmware_nsx_security.connection import ConnectionManager, NsxApiError
 from vmware_nsx_security.notify.audit import AuditLogger
 
 logger = logging.getLogger(__name__)
@@ -56,12 +56,38 @@ def _safe_error(exc: Exception, tool: str) -> str:
     host:port pairs. We log the full traceback to stderr (operator-visible) and
     return only a control-char-stripped, length-capped message to the agent.
     ``ValueError`` is treated as an intentional, user-facing validation message
-    (e.g. "policy has active rules"); other exceptions get a generic message.
+    (e.g. "policy has active rules"); the connection layer's teaching errors
+    (``NsxApiError``) also pass through; other exceptions get a generic message.
     """
     logger.error("Tool %s failed", tool, exc_info=True)
-    if isinstance(exc, (ValueError, FileNotFoundError, KeyError)):
+    if isinstance(exc, (ValueError, FileNotFoundError, KeyError, NsxApiError)):
         return sanitize(str(exc), 300)
     return f"{type(exc).__name__}: operation failed."
+
+
+def _write_error(
+    exc: Exception,
+    *,
+    operation: str,
+    resource: str,
+    target: Optional[str],
+    parameters: Optional[dict] = None,
+) -> dict:
+    """Audit a failed write operation and return the standard error payload.
+
+    Write wrappers previously audited only successes, leaving failed writes
+    invisible in the audit trail — every write tool's except branch must go
+    through here so result="error" entries are recorded too.
+    """
+    _audit.log(
+        target=target or "default",
+        operation=operation,
+        resource=resource,
+        parameters=parameters,
+        result="error",
+    )
+    return {"error": _safe_error(exc, "nsx-security"), "hint": _DOCTOR_HINT}
+
 
 mcp = FastMCP(
     "vmware-nsx-security",
@@ -230,7 +256,10 @@ def create_dfw_policy(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="create_dfw_policy", resource=policy_id,
+            target=target, parameters={"display_name": display_name, "category": category},
+        )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -270,7 +299,10 @@ def update_dfw_policy(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="update_dfw_policy", resource=policy_id,
+            target=target,
+        )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -298,7 +330,10 @@ def delete_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="delete_dfw_policy", resource=policy_id,
+            target=target,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -389,7 +424,10 @@ def create_dfw_rule(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="create_dfw_rule", resource=f"{policy_id}/{rule_id}",
+            target=target, parameters={"action": action, "display_name": display_name},
+        )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -443,7 +481,10 @@ def update_dfw_rule(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="update_dfw_rule", resource=f"{policy_id}/{rule_id}",
+            target=target,
+        )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -485,7 +526,10 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: Optional[str] = None) 
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="delete_dfw_rule", resource=f"{policy_id}/{rule_id}",
+            target=target,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -588,7 +632,10 @@ def create_group(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="create_group", resource=group_id,
+            target=target, parameters={"display_name": display_name},
+        )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -617,7 +664,10 @@ def delete_group(group_id: str, target: Optional[str] = None) -> dict:
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="delete_group", resource=group_id,
+            target=target,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -684,7 +734,51 @@ def apply_vm_tag(
         )
         return result
     except Exception as e:
-        return {"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}
+        return _write_error(
+            e, operation="apply_vm_tag", resource=vm_id,
+            target=target, parameters={"scope": tag_scope, "tag": tag_value},
+        )
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="medium")
+def remove_vm_tag(
+    vm_id: str,
+    tag_scope: str,
+    tag_value: str,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Remove an NSX tag from a virtual machine.
+
+    Only the exact scope/value pair is removed — other tags on the VM are
+    preserved. Removing a tag can change dynamic security group membership
+    immediately (groups with tag Conditions stop matching the VM). Use
+    list_vm_tags first to confirm the exact scope and value.
+
+    Args:
+        vm_id: VM external ID (fabric UUID, obtainable from list_vm_tags).
+        tag_scope: Tag scope string of the tag to remove (e.g. 'env').
+        tag_value: Tag value string of the tag to remove (e.g. 'production').
+        target: Optional NSX Manager target name from config.
+    """
+    try:
+        from vmware_nsx_security.ops.tags import remove_vm_tag as _fn
+
+        client = _get_connection(target)
+        result = _fn(client, vm_id, tag_scope, tag_value)
+        _audit.log(
+            target=target or "default",
+            operation="remove_vm_tag",
+            resource=vm_id,
+            parameters={"scope": tag_scope, "tag": tag_value},
+            result="ok",
+        )
+        return result
+    except Exception as e:
+        return _write_error(
+            e, operation="remove_vm_tag", resource=vm_id,
+            target=target, parameters={"scope": tag_scope, "tag": tag_value},
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

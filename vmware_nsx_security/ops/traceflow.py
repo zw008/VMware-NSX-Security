@@ -18,19 +18,20 @@ remain functional. The Policy API successor lives under
 from __future__ import annotations
 
 import logging
-import re
 import time
 from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
+
+from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
 _log = logging.getLogger("vmware-nsx-security.traceflow")
 
-_POLL_INTERVAL = 2  # seconds between status checks
-_MAX_POLLS = 15     # up to 30 seconds total wait time
+_POLL_INTERVAL = 2   # seconds between status checks
+_MAX_POLLS = 150     # safety cap: up to 300 seconds total wait time
 
 # IP protocol numbers for the FieldsPacketData ip_header
 _IP_PROTOCOL_NUMBERS = {"TCP": 6, "UDP": 17, "ICMP": 1}
@@ -71,8 +72,14 @@ def run_traceflow(
 
     Returns:
         Dict with traceflow_id, operation_state (IN_PROGRESS/FINISHED/
-        FAILED), component observations list, and a summary of any DFW
-        hits found along the path.
+        FAILED), cleaned_up flag, component observations list, and a
+        summary of any DFW hits found along the path.
+
+        ``cleaned_up`` is True when the server-side traceflow object was
+        deleted after retrieval. A traceflow still IN_PROGRESS at timeout
+        is left in place (cleaned_up=False) so get_traceflow_result can
+        poll it later — calling get_traceflow_result on a cleaned-up ID
+        returns a 404.
     """
     protocol = protocol.upper()
     if protocol not in ("TCP", "UDP", "ICMP"):
@@ -118,8 +125,11 @@ def run_traceflow(
     _log.info("Traceflow %s initiated: %s -> %s", tf_id, src_ip, dst_ip)
 
     # Poll for completion — the API reports `operation_state` with enum
-    # IN_PROGRESS / FINISHED / FAILED.
-    polls = min(_MAX_POLLS, timeout_seconds // _POLL_INTERVAL)
+    # IN_PROGRESS / FINISHED / FAILED. Honor the requested timeout up to the
+    # _MAX_POLLS safety cap, and always poll at least once (the old
+    # `timeout // interval` formula silently capped waits at 30s and produced
+    # ZERO polls for timeout_seconds < 2).
+    polls = max(1, min(_MAX_POLLS, timeout_seconds // _POLL_INTERVAL))
     operation_state = "IN_PROGRESS"
     for _ in range(polls):
         time.sleep(_POLL_INTERVAL)
@@ -161,16 +171,22 @@ def run_traceflow(
     except Exception as exc:
         _log.warning("Failed to fetch traceflow observations for %s: %s", tf_id, exc)
 
-    # Clean up — best-effort; a failed delete leaves a transient traceflow that
-    # NSX ages out on its own, but log it so resource leaks are visible.
-    try:
-        client.delete(f"/api/v1/traceflows/{tf_id}")
-    except Exception as exc:
-        _log.debug("Failed to clean up traceflow %s: %s", tf_id, exc)
+    # Clean up — best-effort; a failed delete leaves a transient traceflow
+    # that NSX ages out on its own, but log it so resource leaks are visible.
+    # An IN_PROGRESS traceflow is NOT deleted: the caller may still poll it
+    # via get_traceflow_result, and deleting it would 404 that lookup.
+    cleaned_up = False
+    if operation_state in ("FINISHED", "FAILED"):
+        try:
+            client.delete(f"/api/v1/traceflows/{tf_id}")
+            cleaned_up = True
+        except Exception as exc:
+            _log.debug("Failed to clean up traceflow %s: %s", tf_id, exc)
 
     return {
         "traceflow_id": tf_id,
         "operation_state": operation_state,
+        "cleaned_up": cleaned_up,
         "src_ip": src_ip,
         "dst_ip": dst_ip,
         "protocol": protocol,
@@ -184,7 +200,10 @@ def get_traceflow_result(client: NsxClient, traceflow_id: str) -> dict:
     """Retrieve the current status and observations of an existing Traceflow.
 
     Use this if you initiated a traceflow and want to check its result
-    later without waiting.
+    later without waiting. Note: run_traceflow deletes FINISHED/FAILED
+    traceflows after retrieval (see its cleaned_up field) — looking up a
+    cleaned-up ID returns a 404; only IN_PROGRESS traceflows remain
+    pollable here.
 
     Args:
         client: Authenticated NsxClient instance.
@@ -194,8 +213,7 @@ def get_traceflow_result(client: NsxClient, traceflow_id: str) -> dict:
         Dict with traceflow_id, operation_state (IN_PROGRESS/FINISHED/
         FAILED), and observations list (discriminated by resource_type).
     """
-    if not re.match(r"^[\w\-\.]+$", traceflow_id):
-        raise ValueError(f"Invalid traceflow_id: '{traceflow_id}'")
+    _validate_id(traceflow_id, "traceflow_id")
 
     tf_data = client.get(f"/api/v1/traceflows/{traceflow_id}")
     operation_state = tf_data.get("operation_state", "UNKNOWN")

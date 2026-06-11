@@ -10,10 +10,11 @@ or combinations thereof (AND/OR expressions).
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
+
+from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
@@ -22,16 +23,6 @@ _log = logging.getLogger("vmware-nsx-security.security_group")
 
 _GROUPS_BASE = "/policy/api/v1/infra/domains/default/groups"
 _DFW_POLICIES_BASE = "/policy/api/v1/infra/domains/default/security-policies"
-
-
-def _validate_id(value: str, field: str = "id") -> str:
-    """Validate that an ID contains only safe characters."""
-    if not re.match(r"^[\w\-\.]+$", value):
-        raise ValueError(
-            f"Invalid {field} '{value}': only alphanumerics, hyphens, "
-            "underscores, and dots are allowed."
-        )
-    return value
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +68,12 @@ def get_group(client: NsxClient, group_id: str) -> dict:
     _validate_id(group_id, "group_id")
     g = client.get(f"{_GROUPS_BASE}/{group_id}")
 
-    # Try to get effective members
+    # Try to get effective members. A failed fetch must NOT masquerade as
+    # an empty group: member_count becomes None and members_error explains
+    # why, so callers can tell "0 members" apart from "could not check".
     members: list[dict] = []
+    member_count: int | None = 0
+    members_error: str | None = None
     try:
         member_data = client.get(
             f"{_GROUPS_BASE}/{group_id}/members/virtual-machines"
@@ -91,20 +86,26 @@ def get_group(client: NsxClient, group_id: str) -> dict:
             }
             for m in member_data.get("results", [])[:50]
         ]
-    except Exception:
-        _log.debug("Could not fetch members for group %s", group_id)
+        member_count = len(members)
+    except Exception as exc:
+        _log.warning("Could not fetch members for group %s: %s", group_id, exc)
+        member_count = None
+        members_error = sanitize(str(exc))
 
-    return {
+    result: dict[str, Any] = {
         "id": sanitize(g.get("id", "")),
         "display_name": sanitize(g.get("display_name", "")),
         "description": sanitize(g.get("description", "")),
         "expression": g.get("expression", []),
         "tags": g.get("tags", []),
         "path": sanitize(g.get("path", "")),
-        "member_count": len(members),
+        "member_count": member_count,
         "members": members,
         "_revision": g.get("_revision"),
     }
+    if members_error is not None:
+        result["members_error"] = members_error
+    return result
 
 
 # ---------------------------------------------------------------------------
