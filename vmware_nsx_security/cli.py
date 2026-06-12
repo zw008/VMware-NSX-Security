@@ -54,6 +54,16 @@ ConfigOption = Annotated[
 DryRunOption = Annotated[
     bool, typer.Option("--dry-run", help="Print API calls without executing")
 ]
+NameFilterOption = Annotated[
+    str | None,
+    typer.Option("--name-filter", help="Substring/glob match on display name"),
+]
+LimitOption = Annotated[
+    int, typer.Option("--limit", help="Max results to return (default 50)")
+]
+OffsetOption = Annotated[
+    int, typer.Option("--offset", help="Number of matched results to skip")
+]
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -164,12 +174,17 @@ def _confirm_destructive(resource_type: str, resource_id: str) -> bool:
 def policy_list(
     target: TargetOption = None,
     config: ConfigOption = None,
+    name_filter: NameFilterOption = None,
+    limit: LimitOption = 50,
+    offset: OffsetOption = 0,
 ) -> None:
-    """List all DFW security policies."""
+    """List DFW security policies (default 50; filter with --name-filter)."""
     from vmware_nsx_security.ops.dfw_policy import list_dfw_policies
 
     client, _ = _get_connection(target, config)
-    policies = list_dfw_policies(client)
+    policies = list_dfw_policies(
+        client, name_filter=name_filter, limit=limit, offset=offset
+    )
 
     table = Table(title="DFW Security Policies")
     table.add_column("ID")
@@ -369,12 +384,17 @@ def rule_delete(
 def group_list(
     target: TargetOption = None,
     config: ConfigOption = None,
+    name_filter: NameFilterOption = None,
+    limit: LimitOption = 50,
+    offset: OffsetOption = 0,
 ) -> None:
-    """List all security groups."""
+    """List security groups (default 50; filter with --name-filter)."""
     from vmware_nsx_security.ops.security_group import list_groups
 
     client, _ = _get_connection(target, config)
-    groups = list_groups(client)
+    groups = list_groups(
+        client, name_filter=name_filter, limit=limit, offset=offset
+    )
 
     table = Table(title="Security Groups")
     table.add_column("ID")
@@ -559,12 +579,17 @@ def traceflow_run(
 def idps_profiles(
     target: TargetOption = None,
     config: ConfigOption = None,
+    name_filter: NameFilterOption = None,
+    limit: LimitOption = 50,
+    offset: OffsetOption = 0,
 ) -> None:
-    """List IDPS profiles."""
+    """List IDPS profiles (default 50; filter with --name-filter)."""
     from vmware_nsx_security.ops.idps import list_idps_profiles
 
     client, _ = _get_connection(target, config)
-    profiles = list_idps_profiles(client)
+    profiles = list_idps_profiles(
+        client, name_filter=name_filter, limit=limit, offset=offset
+    )
 
     table = Table(title="IDPS Profiles")
     table.add_column("ID")

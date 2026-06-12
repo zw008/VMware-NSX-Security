@@ -126,20 +126,29 @@ def _get_connection(target: Optional[str] = None) -> Any:
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_dfw_policies(target: Optional[str] = None) -> list[dict]:
-    """[READ] List all DFW security policies in the default domain.
+def list_dfw_policies(
+    target: Optional[str] = None,
+    name_filter: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """[READ] List DFW security policies in the default domain.
 
     Returns each policy's id, display_name, category, sequence_number,
-    stateful flag, and rule count.
+    stateful flag, and rule count. Defaults to the first 50 matches —
+    use name_filter to narrow and offset to page on large estates.
 
     Args:
         target: Optional NSX Manager target name from config. Uses default if omitted.
+        name_filter: Optional substring/glob match on policy display_name.
+        limit: Max policies to return (default 50).
+        offset: Number of matched policies to skip (pagination).
     """
     try:
         from vmware_nsx_security.ops.dfw_policy import list_dfw_policies as _fn
 
         client = _get_connection(target)
-        return _fn(client)
+        return _fn(client, name_filter=name_filter, limit=limit, offset=offset)
     except Exception as e:
         return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
@@ -539,19 +548,29 @@ def delete_dfw_rule(policy_id: str, rule_id: str, target: Optional[str] = None) 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_groups(target: Optional[str] = None) -> list[dict]:
-    """[READ] List all NSX security groups in the default domain.
+def list_groups(
+    target: Optional[str] = None,
+    name_filter: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """[READ] List NSX security groups in the default domain.
 
     Returns each group's id, display_name, description, and expression count.
+    Defaults to the first 50 matches — use name_filter to narrow and offset
+    to page on large estates.
 
     Args:
         target: Optional NSX Manager target name from config.
+        name_filter: Optional substring/glob match on group display_name.
+        limit: Max groups to return (default 50).
+        offset: Number of matched groups to skip (pagination).
     """
     try:
         from vmware_nsx_security.ops.security_group import list_groups as _fn
 
         client = _get_connection(target)
-        return _fn(client)
+        return _fn(client, name_filter=name_filter, limit=limit, offset=offset)
     except Exception as e:
         return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 
@@ -643,9 +662,11 @@ def create_group(
 def delete_group(group_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Delete an NSX security group.
 
-    Refuses deletion if the group is referenced by any DFW rule (as
-    source, destination, or applied-to scope) or by a policy-level
-    scope, or if the reference scan itself fails.
+    Refuses deletion if any entity references the group, using NSX's own
+    group-associations dependency API. This covers every reference class:
+    DFW rules/policies, gateway-firewall policies, nested groups (another
+    group referencing this one), and service-insertion/IDS-IPS policies.
+    Also refuses if the reference check itself fails (fail-safe).
 
     Args:
         group_id: ID of the group to delete.
@@ -862,21 +883,31 @@ def get_traceflow_result(traceflow_id: str, target: Optional[str] = None) -> dic
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_idps_profiles(target: Optional[str] = None) -> list[dict]:
-    """[READ] List all IDPS profiles configured in NSX.
+def list_idps_profiles(
+    target: Optional[str] = None,
+    name_filter: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """[READ] List IDPS profiles configured in NSX.
 
     Returns each profile's id, display_name, profile_severity
     (comma-joined list), criteria (filter_name/filter_value pairs such
     as ATTACK_TYPE or CVSS filters), and overridden signature count.
+    Defaults to the first 50 matches — use name_filter to narrow and
+    offset to page on large estates.
 
     Args:
         target: Optional NSX Manager target name from config.
+        name_filter: Optional substring/glob match on profile display_name.
+        limit: Max profiles to return (default 50).
+        offset: Number of matched profiles to skip (pagination).
     """
     try:
         from vmware_nsx_security.ops.idps import list_idps_profiles as _fn
 
         client = _get_connection(target)
-        return _fn(client)
+        return _fn(client, name_filter=name_filter, limit=limit, offset=offset)
     except Exception as e:
         return [{"error": _safe_error(e, "nsx-security"), "hint": _DOCTOR_HINT}]
 

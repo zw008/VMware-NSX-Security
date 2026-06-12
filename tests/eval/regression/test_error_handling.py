@@ -206,6 +206,46 @@ def test_transport_failure_after_reauth_is_translated(client: NsxClient) -> None
             client.get("/x")
 
 
+# ── get_all() safety cap (踩坑 #21 family-sync with vmware-nsx) ───────────
+
+
+def test_get_all_stops_at_max_items_cap(client: NsxClient) -> None:
+    # issue #9: get_all() was uncapped, unlike vmware-nsx's _MAX_ITEMS=1000.
+    # An endless cursor must stop at the cap and not loop forever.
+    from vmware_nsx_security.connection import _MAX_ITEMS
+
+    http = client._test_http  # type: ignore[attr-defined]
+    # Endless cursor: 100 results per page, forever.
+    http.request.return_value = _response(
+        200, json_body={"results": [{"i": 1}] * 100, "cursor": "next"}
+    )
+
+    results = client.get_all("/policy/api/v1/infra/domains/default/groups", max_items=250)
+    assert len(results) == 250
+
+    # Default cap is _MAX_ITEMS (1000).
+    assert _MAX_ITEMS == 1000
+    results = client.get_all("/policy/api/v1/infra/domains/default/groups")
+    assert len(results) == _MAX_ITEMS
+
+
+def test_get_all_logs_truncation_warning(client: NsxClient, caplog) -> None:
+    # Hitting the cap must emit a warning telling the user to filter.
+    import logging
+
+    http = client._test_http  # type: ignore[attr-defined]
+    http.request.return_value = _response(
+        200, json_body={"results": [{"i": 1}] * 100, "cursor": "next"}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="vmware-nsx-security.connection"):
+        client.get_all("/policy/api/v1/infra/domains/default/groups", max_items=150)
+
+    assert any("safety cap" in rec.message and "truncated" in rec.message for rec in caplog.records), (
+        "get_all must warn when it truncates at the cap"
+    )
+
+
 # ── is_alive: probe must treat error statuses as signals, not crashes ───
 
 

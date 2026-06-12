@@ -17,6 +17,12 @@ from typing import TYPE_CHECKING
 
 from vmware_policy import sanitize
 
+from vmware_nsx_security.ops._paginate import (
+    DEFAULT_LIMIT,
+    filter_by_name,
+    paginate,
+)
+
 if TYPE_CHECKING:
     from vmware_nsx_security.connection import NsxClient
 
@@ -30,8 +36,13 @@ _IDPS_BASE = "/policy/api/v1/infra/settings/firewall/security/intrusion-services
 # ---------------------------------------------------------------------------
 
 
-def list_idps_profiles(client: NsxClient) -> list[dict]:
-    """List all IDPS profiles configured in NSX.
+def list_idps_profiles(
+    client: NsxClient,
+    name_filter: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+) -> list[dict]:
+    """List IDPS profiles configured in NSX.
 
     IDPS profiles define which signature sets and actions (detect/prevent)
     are active. Each profile can be applied to one or more DFW policies.
@@ -44,15 +55,19 @@ def list_idps_profiles(client: NsxClient) -> list[dict]:
 
     Args:
         client: Authenticated NsxClient instance.
+        name_filter: Optional substring/glob match on display_name.
+        limit: Max profiles to return (default 50). Avoids flooding agent
+            context on large estates.
+        offset: Number of matched profiles to skip (pagination).
 
     Returns:
         List of IDPS profile summary dicts with id, display_name,
         criteria (filter_name/filter_value pairs), profile_severity
         (comma-joined), and overridden_signature_count.
     """
-    items = client.get_all(f"{_IDPS_BASE}/profiles")
+    items = filter_by_name(client.get_all(f"{_IDPS_BASE}/profiles"), name_filter)
     profiles: list[dict] = []
-    for p in items:
+    for p in paginate(items, limit, offset):
         criteria: list[dict] = []
         for c in p.get("criteria", []):
             if c.get("resource_type") == "IdsProfileConjunctionOperator":

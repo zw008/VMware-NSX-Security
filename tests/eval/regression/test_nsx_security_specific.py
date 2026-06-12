@@ -467,45 +467,73 @@ def test_create_dfw_policy_accepts_ethernet_category() -> None:
     assert client.put.call_args.args[1]["category"] == "Ethernet"
 
 
-# ── M3: delete_group reference scan covers scopes and aborts on failure ─
+# ── M3 / issue #6: delete_group uses the group-associations dependency API,
+#    covering every reference class (DFW, gateway firewall, NESTED GROUPS,
+#    service-insertion) and failing safe when the check errors. ────────────
 
 
-def _policies_client(policies: list[dict], rules_by_policy: dict[str, list[dict]]) -> MagicMock:
+def _associations_client(associations: list[dict]) -> MagicMock:
+    """Mock whose group-associations endpoint returns ``associations``."""
     client = _mock_client()
 
     def _get_all(path, params=None):
-        if path.endswith("/security-policies"):
-            return policies
-        for pid, rules in rules_by_policy.items():
-            if path.endswith(f"/security-policies/{pid}/rules"):
-                return rules
+        if path.endswith("/group-associations"):
+            return associations
         return []
 
     client.get_all.side_effect = _get_all
     return client
 
 
-def test_delete_group_blocks_on_rule_scope_reference() -> None:
+def test_delete_group_blocks_on_dfw_policy_reference() -> None:
     from vmware_nsx_security.ops.security_group import delete_group
 
-    group_path = "/infra/domains/default/groups/g1"
-    client = _policies_client(
-        [{"id": "pol1"}],
-        {"pol1": [{"id": "r1", "source_groups": ["ANY"], "destination_groups": ["ANY"], "scope": [group_path]}]},
+    client = _associations_client(
+        [{"target_type": "SecurityPolicy", "target_display_name": "pol1", "path": "/infra/.../pol1"}]
     )
     with pytest.raises(ValueError):
         delete_group(client, "g1")
     client.delete.assert_not_called()
 
 
-def test_delete_group_blocks_on_policy_scope_reference() -> None:
+def test_delete_group_blocks_on_nested_group_reference() -> None:
+    """A group referenced only by ANOTHER GROUP (not a DFW rule) must be
+    detected. The old DFW-only rule walk missed this and would orphan the
+    nested-group reference. Maps to issue #6.
+    """
     from vmware_nsx_security.ops.security_group import delete_group
 
-    group_path = "/infra/domains/default/groups/g1"
-    client = _policies_client([{"id": "pol1", "scope": [group_path]}], {"pol1": []})
+    # Sole reference is a nested group (target_type=Group), with no DFW
+    # rule referencing it at all.
+    client = _associations_client(
+        [{"target_type": "Group", "target_display_name": "parent-group", "path": "/infra/domains/default/groups/parent-group"}]
+    )
+    with pytest.raises(ValueError) as exc:
+        delete_group(client, "g1")
+    assert "parent-group" in str(exc.value)
+    client.delete.assert_not_called()
+
+
+def test_delete_group_blocks_on_gateway_firewall_reference() -> None:
+    from vmware_nsx_security.ops.security_group import delete_group
+
+    client = _associations_client(
+        [{"target_type": "GatewayPolicy", "target_display_name": "gw-pol", "path": "/infra/domains/default/gateway-policies/gw-pol"}]
+    )
     with pytest.raises(ValueError):
         delete_group(client, "g1")
     client.delete.assert_not_called()
+
+
+def test_delete_group_succeeds_when_unreferenced() -> None:
+    from vmware_nsx_security.ops.security_group import delete_group
+
+    client = _associations_client([])
+    result = delete_group(client, "g1")
+    assert result["status"] == "deleted"
+    client.delete.assert_called_once_with(
+        "/policy/api/v1/infra/domains/default/groups/g1"
+    )
 
 
 def test_delete_group_aborts_when_reference_scan_fails() -> None:
@@ -596,3 +624,87 @@ def test_mcp_exposes_all_21_tools() -> None:
         "update_dfw_policy",
         "update_dfw_rule",
     ], "MCP tool surface drifted from the declared 21 tools (10 read / 11 write)"
+
+
+# ---------------------------------------------------------------------------
+# List ops: name_filter + limit/offset (issue #7) — list ops must default
+# to limit=50 and support a display_name filter so they don't flood agent
+# context on large estates. The connection-layer get_all safety cap stays
+# intact; this trims the already-collected list before returning it.
+# ---------------------------------------------------------------------------
+
+
+def _named_items(n: int, prefix: str = "item") -> list[dict]:
+    return [{"id": f"{prefix}-{i}", "display_name": f"{prefix}-{i}"} for i in range(n)]
+
+
+@pytest.mark.parametrize(
+    "import_path, fn_name",
+    [
+        ("vmware_nsx_security.ops.dfw_policy", "list_dfw_policies"),
+        ("vmware_nsx_security.ops.security_group", "list_groups"),
+        ("vmware_nsx_security.ops.idps", "list_idps_profiles"),
+    ],
+)
+def test_list_ops_default_limit_caps_count(import_path, fn_name) -> None:
+    import importlib
+
+    fn = getattr(importlib.import_module(import_path), fn_name)
+    client = _mock_client()
+    client.get_all.return_value = _named_items(200)
+
+    result = fn(client)
+    assert len(result) == 50, "list ops must default to limit=50"
+
+
+@pytest.mark.parametrize(
+    "import_path, fn_name",
+    [
+        ("vmware_nsx_security.ops.dfw_policy", "list_dfw_policies"),
+        ("vmware_nsx_security.ops.security_group", "list_groups"),
+        ("vmware_nsx_security.ops.idps", "list_idps_profiles"),
+    ],
+)
+def test_list_ops_name_filter_narrows(import_path, fn_name) -> None:
+    import importlib
+
+    fn = getattr(importlib.import_module(import_path), fn_name)
+    client = _mock_client()
+    client.get_all.return_value = [
+        {"id": "web-1", "display_name": "web-frontend"},
+        {"id": "db-1", "display_name": "db-backend"},
+        {"id": "web-2", "display_name": "web-api"},
+    ]
+
+    # substring match is case-insensitive
+    result = fn(client, name_filter="WEB")
+    names = {r["display_name"] for r in result}
+    assert names == {"web-frontend", "web-api"}
+
+    # glob pattern is supported
+    result = fn(client, name_filter="*backend")
+    assert {r["display_name"] for r in result} == {"db-backend"}
+
+
+@pytest.mark.parametrize(
+    "import_path, fn_name",
+    [
+        ("vmware_nsx_security.ops.dfw_policy", "list_dfw_policies"),
+        ("vmware_nsx_security.ops.security_group", "list_groups"),
+        ("vmware_nsx_security.ops.idps", "list_idps_profiles"),
+    ],
+)
+def test_list_ops_offset_paginates(import_path, fn_name) -> None:
+    import importlib
+
+    fn = getattr(importlib.import_module(import_path), fn_name)
+    client = _mock_client()
+    client.get_all.return_value = _named_items(10)
+
+    page1 = fn(client, limit=3, offset=0)
+    page2 = fn(client, limit=3, offset=3)
+
+    assert [r["id"] for r in page1] == ["item-0", "item-1", "item-2"]
+    assert [r["id"] for r in page2] == ["item-3", "item-4", "item-5"]
+    # windows do not overlap
+    assert not ({r["id"] for r in page1} & {r["id"] for r in page2})

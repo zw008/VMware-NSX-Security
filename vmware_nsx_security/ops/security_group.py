@@ -14,6 +14,11 @@ from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
 
+from vmware_nsx_security.ops._paginate import (
+    DEFAULT_LIMIT,
+    filter_by_name,
+    paginate,
+)
 from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
@@ -22,7 +27,6 @@ if TYPE_CHECKING:
 _log = logging.getLogger("vmware-nsx-security.security_group")
 
 _GROUPS_BASE = "/policy/api/v1/infra/domains/default/groups"
-_DFW_POLICIES_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 
 
 # ---------------------------------------------------------------------------
@@ -30,17 +34,26 @@ _DFW_POLICIES_BASE = "/policy/api/v1/infra/domains/default/security-policies"
 # ---------------------------------------------------------------------------
 
 
-def list_groups(client: NsxClient) -> list[dict]:
-    """List all security groups in the default domain.
+def list_groups(
+    client: NsxClient,
+    name_filter: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+) -> list[dict]:
+    """List security groups in the default domain.
 
     Args:
         client: Authenticated NsxClient instance.
+        name_filter: Optional substring/glob match on display_name.
+        limit: Max groups to return (default 50). Avoids flooding agent
+            context on large estates.
+        offset: Number of matched groups to skip (pagination).
 
     Returns:
         List of group summary dicts with id, display_name, expression
         type counts, and member count.
     """
-    items = client.get_all(_GROUPS_BASE)
+    items = filter_by_name(client.get_all(_GROUPS_BASE), name_filter)
     return [
         {
             "id": sanitize(g.get("id", "")),
@@ -50,7 +63,7 @@ def list_groups(client: NsxClient) -> list[dict]:
             "tags": g.get("tags", []),
             "path": sanitize(g.get("path", "")),
         }
-        for g in items
+        for g in paginate(items, limit, offset)
     ]
 
 
@@ -198,12 +211,20 @@ def create_group(
 
 
 def delete_group(client: NsxClient, group_id: str) -> dict[str, str]:
-    """Delete a security group after checking for DFW policy references.
+    """Delete a security group after checking every entity that references it.
 
-    Refuses deletion if the group is referenced by any DFW rule as a
-    source, destination, or applied-to scope, or by a policy-level scope,
-    to prevent breaking active security policies. If the reference scan
-    itself fails, deletion is aborted rather than proceeding blind.
+    Uses NSX's own dependency API,
+    ``GET .../groups/<id>/group-associations``, which reports *all*
+    entities that reference the group regardless of reference class — DFW
+    rules/policies, gateway-firewall policies, nested groups (another
+    group's PathExpression/Condition), service-insertion and IDS/IPS
+    policies, and load-balancer/VPN configs. This is both more complete
+    and far cheaper than hand-walking every policy's rule list: the old
+    DFW-only scan could pass while NSX still 409'd on delete, or could
+    succeed and orphan a nested-group reference.
+
+    Fails safe: if the association check itself errors (API unreachable),
+    deletion is aborted rather than proceeding blind.
 
     Args:
         client: Authenticated NsxClient instance.
@@ -213,47 +234,38 @@ def delete_group(client: NsxClient, group_id: str) -> dict[str, str]:
         Dict with 'status' and 'message' keys on success.
 
     Raises:
-        ValueError: If the group is referenced by DFW policies/rules, or
-            if the reference scan could not be completed.
+        ValueError: If the group is referenced by any entity, or if the
+            association check could not be completed.
     """
     _validate_id(group_id, "group_id")
 
-    # Build the path that would appear in DFW rules
-    group_path = f"/infra/domains/default/groups/{group_id}"
-
-    # Check for references in all policies (rule source/destination,
-    # rule applied-to scope, and policy-level applied-to scope).
-    referencing_rules: list[str] = []
+    # Ask NSX which entities reference this group. The group-associations
+    # endpoint returns one entry per referencing entity (target_type names
+    # the reference class: SecurityPolicy, GatewayPolicy, Group, etc.), so
+    # nested-group and gateway-firewall references are covered without a
+    # per-policy rule walk.
     try:
-        policies = client.get_all(_DFW_POLICIES_BASE)
-        for policy in policies:
-            policy_id = policy.get("id", "")
-            if not policy_id:
-                continue
-            if group_path in policy.get("scope", []):
-                referencing_rules.append(f"{policy_id} (policy scope)")
-            rules = client.get_all(f"{_DFW_POLICIES_BASE}/{policy_id}/rules")
-            for rule in rules:
-                if (
-                    group_path in rule.get("source_groups", [])
-                    or group_path in rule.get("destination_groups", [])
-                    or group_path in rule.get("scope", [])
-                ):
-                    referencing_rules.append(
-                        f"{policy_id}/{rule.get('id', 'unknown')}"
-                    )
+        associations = client.get_all(
+            f"{_GROUPS_BASE}/{group_id}/group-associations"
+        )
     except Exception as exc:
         raise ValueError(
-            f"Cannot delete group '{group_id}': the DFW reference scan "
-            f"failed ({exc}). Refusing to delete a group that may still be "
-            "in use. Verify NSX connectivity (run 'vmware-nsx-security "
-            "doctor') and retry."
+            f"Cannot delete group '{group_id}': the reference (group-"
+            f"associations) check failed ({exc}). Refusing to delete a "
+            "group that may still be in use. Verify NSX connectivity (run "
+            "'vmware-nsx-security doctor') and retry."
         ) from exc
 
-    if referencing_rules:
+    if associations:
+        refs = [
+            f"{sanitize(a.get('target_type', 'Unknown'))}:"
+            f"{sanitize(a.get('target_display_name') or a.get('path', 'unknown'))}"
+            for a in associations
+        ]
         raise ValueError(
-            f"Cannot delete group '{group_id}': referenced by {len(referencing_rules)} "
-            f"DFW policy/rule reference(s): {referencing_rules}. Remove the references first."
+            f"Cannot delete group '{group_id}': referenced by {len(refs)} "
+            f"entity/entities (nested groups, DFW/gateway firewall, "
+            f"service-insertion, etc.): {refs}. Remove the references first."
         )
 
     client.delete(f"{_GROUPS_BASE}/{group_id}")

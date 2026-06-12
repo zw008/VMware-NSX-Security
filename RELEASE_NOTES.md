@@ -1,3 +1,15 @@
+## v1.5.37 (2026-06-12) — backlog: robust group-delete guard, list pagination
+
+### Fixed
+- `delete_group`'s reference guard uses NSX's `group-associations` dependency API, catching nested-group,
+  gateway-firewall, and service-insertion/IDPS references the old DFW-only scan missed (and fails safe if
+  the check errors). (#6)
+
+### Added
+- `list_dfw_policies` / `list_groups` / `list_idps_profiles` gained `name_filter` + `limit`(=50)/`offset`
+  pagination across ops/MCP/CLI. (#7)
+- `get_all()` safety cap (1000) ported from the sibling NSX repo (家族-sync). (#9)
+
 ## v1.5.36 (2026-06-12) — error translation, tag-remove parity, audit completeness
 
 ### Fixed

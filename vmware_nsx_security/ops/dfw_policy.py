@@ -11,6 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 from vmware_policy import sanitize
 
+from vmware_nsx_security.ops._paginate import (
+    DEFAULT_LIMIT,
+    filter_by_name,
+    paginate,
+)
 from vmware_nsx_security.ops._validate import validate_id as _validate_id
 
 if TYPE_CHECKING:
@@ -30,17 +35,26 @@ _VALID_CATEGORIES = {"Ethernet", "Emergency", "Infrastructure", "Environment", "
 # ---------------------------------------------------------------------------
 
 
-def list_dfw_policies(client: NsxClient) -> list[dict]:
-    """List all DFW security policies in the default domain.
+def list_dfw_policies(
+    client: NsxClient,
+    name_filter: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+) -> list[dict]:
+    """List DFW security policies in the default domain.
 
     Args:
         client: Authenticated NsxClient instance.
+        name_filter: Optional substring/glob match on display_name.
+        limit: Max policies to return (default 50). Avoids flooding
+            agent context on large estates.
+        offset: Number of matched policies to skip (pagination).
 
     Returns:
         List of policy summary dicts with id, display_name, category,
         sequence_number, and rule count.
     """
-    items = client.get_all(_DFW_BASE)
+    items = filter_by_name(client.get_all(_DFW_BASE), name_filter)
     return [
         {
             "id": sanitize(p.get("id", "")),
@@ -52,7 +66,7 @@ def list_dfw_policies(client: NsxClient) -> list[dict]:
             "rule_count": p.get("rule_count", 0),
             "path": sanitize(p.get("path", "")),
         }
-        for p in items
+        for p in paginate(items, limit, offset)
     ]
 
 

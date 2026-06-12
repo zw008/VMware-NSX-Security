@@ -32,6 +32,10 @@ _log = logging.getLogger("vmware-nsx-security.connection")
 _TRANSIENT_STATUS = frozenset({502, 503, 504})
 _RETRY_DELAY_SEC = 2.0
 
+# Safety cap for paginated collection — search/filter beats dumping
+# unbounded lists into agent context (family "search over list" rule).
+_MAX_ITEMS = 1000
+
 
 class NsxApiError(Exception):
     """An NSX Manager API call returned an error or failed to connect.
@@ -260,14 +264,32 @@ class NsxClient:
         resp = self._request("GET", path, params=params, retries=retries)
         return resp.json() if resp.content else {}
 
-    def get_all(self, path: str, params: dict[str, Any] | None = None) -> list[dict]:
-        """Paginated GET. Follows cursor until all results collected."""
+    def get_all(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        max_items: int = _MAX_ITEMS,
+    ) -> list[dict]:
+        """Paginated GET. Follows cursor until all results collected.
+
+        Collection stops at ``max_items`` (default 1000) as a safety cap —
+        callers wanting more should filter server-side instead of dumping
+        unbounded lists into agent context.
+        """
         all_results: list[dict] = []
         params = dict(params) if params else {}
         while True:
             data = self.get(path, params=params)
             results = data.get("results", [])
             all_results.extend(results)
+            if len(all_results) >= max_items:
+                _log.warning(
+                    "get_all(%s) hit the %d-item safety cap; results truncated. "
+                    "Use a server-side filter to narrow the query.",
+                    path,
+                    max_items,
+                )
+                return all_results[:max_items]
             cursor = data.get("cursor")
             if not cursor:
                 break
