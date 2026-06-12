@@ -1,3 +1,9 @@
+## v1.5.38 (2026-06-12) — backlog finish: server split
+
+### Changed
+- Split `mcp_server/server.py` (823 lines) into `mcp_server/tools/*` domain modules under the 800-line
+  cap. Behavior-preserving — 21 tools unchanged. (#8)
+
 ## v1.5.37 (2026-06-12) — backlog: robust group-delete guard, list pagination
 
 ### Fixed
