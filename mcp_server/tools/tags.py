@@ -36,7 +36,20 @@ def list_vm_tags(vm_display_name: str, target: Optional[str] = None) -> dict:
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "remove_vm_tag",
+        "params": {
+            "vm_id": params.get("vm_id"),
+            "tag_scope": params.get("tag_scope"),
+            "tag_value": params.get("tag_value"),
+            "target": params.get("target"),
+        },
+        "skill": "nsx_security",
+        "note": "Inverse of apply_vm_tag: remove the tag just applied.",
+    },
+)
 def apply_vm_tag(
     vm_id: str,
     tag_scope: str,

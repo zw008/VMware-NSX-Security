@@ -62,7 +62,19 @@ def get_dfw_rule_stats(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "delete_dfw_rule",
+        "params": {
+            "policy_id": params.get("policy_id"),
+            "rule_id": params.get("rule_id"),
+            "target": params.get("target"),
+        },
+        "skill": "nsx_security",
+        "note": "Inverse of create_dfw_rule: delete the rule just created.",
+    },
+)
 def create_dfw_rule(
     policy_id: str,
     rule_id: str,

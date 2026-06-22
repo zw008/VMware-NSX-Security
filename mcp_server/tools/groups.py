@@ -64,7 +64,15 @@ def get_group(group_id: str, target: Optional[str] = None) -> dict:
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "delete_group",
+        "params": {"group_id": params.get("group_id"), "target": params.get("target")},
+        "skill": "nsx_security",
+        "note": "Inverse of create_group: delete the security group just created.",
+    },
+)
 def create_group(
     group_id: str,
     display_name: str,

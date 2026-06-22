@@ -62,7 +62,15 @@ def get_dfw_policy(policy_id: str, target: Optional[str] = None) -> dict:
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "delete_dfw_policy",
+        "params": {"policy_id": params.get("policy_id"), "target": params.get("target")},
+        "skill": "nsx_security",
+        "note": "Inverse of create_dfw_policy: delete the policy just created.",
+    },
+)
 def create_dfw_policy(
     policy_id: str,
     display_name: str,
