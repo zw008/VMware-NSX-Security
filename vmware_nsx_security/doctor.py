@@ -33,11 +33,14 @@ def run_doctor(
     if path.exists():
         checks.append(("Config file", True, str(path)))
     else:
-        checks.append((
-            "Config file",
-            False,
-            f"Not found: {path}. Copy config.example.yaml to {CONFIG_FILE}",
-        ))
+        checks.append(
+            (
+                "Config file",
+                False,
+                f"Not found: {path}. Run 'vmware-nsx-security init' to create it "
+                f"(or copy config.example.yaml to {CONFIG_FILE} by hand).",
+            )
+        )
 
     # ── 2. .env file permissions ─────────────────────────────────────────────
     if ENV_FILE.exists():
@@ -45,11 +48,13 @@ def run_doctor(
             mode = ENV_FILE.stat().st_mode
             perms = stat.S_IMODE(mode)
             if perms & (stat.S_IRWXG | stat.S_IRWXO):
-                checks.append((
-                    ".env permissions",
-                    False,
-                    f"Permissions {oct(perms)} too open. Run: chmod 600 {ENV_FILE}",
-                ))
+                checks.append(
+                    (
+                        ".env permissions",
+                        False,
+                        f"Permissions {oct(perms)} too open. Run: chmod 600 {ENV_FILE}",
+                    )
+                )
             else:
                 checks.append((".env permissions", True, f"{oct(perms)} (owner-only)"))
         except OSError as e:
@@ -83,20 +88,25 @@ def run_doctor(
     for name, target_cfg in config.targets.items():
         try:
             sock = socket.create_connection(
-                (target_cfg.host, target_cfg.port), timeout=5,
+                (target_cfg.host, target_cfg.port),
+                timeout=5,
             )
             sock.close()
-            checks.append((
-                f"Network ({name})",
-                True,
-                f"{target_cfg.host}:{target_cfg.port} reachable",
-            ))
+            checks.append(
+                (
+                    f"Network ({name})",
+                    True,
+                    f"{target_cfg.host}:{target_cfg.port} reachable",
+                )
+            )
         except OSError as e:
-            checks.append((
-                f"Network ({name})",
-                False,
-                f"Cannot reach {target_cfg.host}:{target_cfg.port} - {e}",
-            ))
+            checks.append(
+                (
+                    f"Network ({name})",
+                    False,
+                    f"Cannot reach {target_cfg.host}:{target_cfg.port} - {e}",
+                )
+            )
 
     # ── 6 & 7. NSX authentication + version ─────────────────────────────────
     if not skip_auth:
@@ -123,6 +133,7 @@ def run_doctor(
     # ── 8. MCP server import check ───────────────────────────────────────────
     try:
         import mcp_server.server  # noqa: F401
+
         checks.append(("MCP server import", True, "mcp_server.server importable"))
     except ImportError as e:
         checks.append(("MCP server import", False, f"Import failed: {e}"))

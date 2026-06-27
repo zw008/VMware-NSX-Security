@@ -45,25 +45,15 @@ app.add_typer(idps_app, name="idps")
 
 # ─── Type aliases ────────────────────────────────────────────────────────────
 
-TargetOption = Annotated[
-    str | None, typer.Option("--target", "-t", help="Target name from config")
-]
-ConfigOption = Annotated[
-    Path | None, typer.Option("--config", "-c", help="Config file path")
-]
-DryRunOption = Annotated[
-    bool, typer.Option("--dry-run", help="Print API calls without executing")
-]
+TargetOption = Annotated[str | None, typer.Option("--target", "-t", help="Target name from config")]
+ConfigOption = Annotated[Path | None, typer.Option("--config", "-c", help="Config file path")]
+DryRunOption = Annotated[bool, typer.Option("--dry-run", help="Print API calls without executing")]
 NameFilterOption = Annotated[
     str | None,
     typer.Option("--name-filter", help="Substring/glob match on display name"),
 ]
-LimitOption = Annotated[
-    int, typer.Option("--limit", help="Max results to return (default 50)")
-]
-OffsetOption = Annotated[
-    int, typer.Option("--offset", help="Number of matched results to skip")
-]
+LimitOption = Annotated[int, typer.Option("--limit", help="Max results to return (default 50)")]
+OffsetOption = Annotated[int, typer.Option("--offset", help="Number of matched results to skip")]
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -94,8 +84,7 @@ def _cli_errors(fn):
     return wrapper
 
 
-def _audit_write(target: str, operation: str, resource: str,
-                 parameters: dict | None = None):
+def _audit_write(target: str, operation: str, resource: str, parameters: dict | None = None):
     """Run a write call auditing both outcomes (success-only audit was a gap)."""
     import contextlib
 
@@ -104,11 +93,9 @@ def _audit_write(target: str, operation: str, resource: str,
         try:
             yield
         except BaseException:
-            _audit.log(target=target, operation=operation, resource=resource,
-                       parameters=parameters, result="error")
+            _audit.log(target=target, operation=operation, resource=resource, parameters=parameters, result="error")
             raise
-        _audit.log(target=target, operation=operation, resource=resource,
-                   parameters=parameters, result="ok")
+        _audit.log(target=target, operation=operation, resource=resource, parameters=parameters, result="ok")
 
     return _ctx()
 
@@ -150,10 +137,7 @@ def _dry_run_print(
 
 def _confirm_destructive(resource_type: str, resource_id: str) -> bool:
     """Double-confirmation prompt for destructive operations."""
-    console.print(
-        f"[bold red]WARNING:[/] This will permanently delete "
-        f"{resource_type} '[bold]{resource_id}[/]'."
-    )
+    console.print(f"[bold red]WARNING:[/] This will permanently delete {resource_type} '[bold]{resource_id}[/]'.")
     first = typer.confirm("Are you sure you want to proceed?", default=False)
     if not first:
         return False
@@ -182,9 +166,7 @@ def policy_list(
     from vmware_nsx_security.ops.dfw_policy import list_dfw_policies
 
     client, _ = _get_connection(target, config)
-    policies = list_dfw_policies(
-        client, name_filter=name_filter, limit=limit, offset=offset
-    )
+    policies = list_dfw_policies(client, name_filter=name_filter, limit=limit, offset=offset)
 
     table = Table(title="DFW Security Policies")
     table.add_column("ID")
@@ -250,8 +232,12 @@ def policy_create(
     client, _ = _get_connection(target, config)
     with _audit_write(t, "create_dfw_policy", policy_id):
         result = create_dfw_policy(
-            client, policy_id, display_name,
-            category=category, sequence_number=sequence_number, description=description,
+            client,
+            policy_id,
+            display_name,
+            category=category,
+            sequence_number=sequence_number,
+            description=description,
         )
     console.print(f"[green]Created DFW policy '{policy_id}'[/]")
     console.print_json(json.dumps(result))
@@ -392,9 +378,7 @@ def group_list(
     from vmware_nsx_security.ops.security_group import list_groups
 
     client, _ = _get_connection(target, config)
-    groups = list_groups(
-        client, name_filter=name_filter, limit=limit, offset=offset
-    )
+    groups = list_groups(client, name_filter=name_filter, limit=limit, offset=offset)
 
     table = Table(title="Security Groups")
     table.add_column("ID")
@@ -587,9 +571,7 @@ def idps_profiles(
     from vmware_nsx_security.ops.idps import list_idps_profiles
 
     client, _ = _get_connection(target, config)
-    profiles = list_idps_profiles(
-        client, name_filter=name_filter, limit=limit, offset=offset
-    )
+    profiles = list_idps_profiles(client, name_filter=name_filter, limit=limit, offset=offset)
 
     table = Table(title="IDPS Profiles")
     table.add_column("ID")
@@ -622,8 +604,26 @@ def idps_status(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Doctor
+# Init / Doctor
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+@app.command("init")
+@_cli_errors
+def init(
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing config"),
+    skip_test: bool = typer.Option(False, "--skip-test", help="Skip the post-setup connection test"),
+) -> None:
+    """Interactive first-run setup: write config.yaml + .env, then verify.
+
+    Prompts for the NSX Manager host, username, port, TLS verification, and
+    password. The password is written to ~/.vmware-nsx-security/.env in
+    grep-safe b64: form (0600), never plaintext. Offers to run doctor as a
+    connection test when done.
+    """
+    from vmware_nsx_security.init_wizard import run_init
+
+    raise typer.Exit(run_init(force=force, skip_test=skip_test))
 
 
 @app.command("doctor")
@@ -650,6 +650,7 @@ def mcp_cmd() -> None:
     Equivalent to the legacy `vmware-nsx-security-mcp` console script.
     """
     import sys
+
     if sys.version_info < (3, 10):
         msg = (
             f"ERROR: vmware-nsx-security MCP server requires Python >= 3.10 "

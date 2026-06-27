@@ -69,10 +69,7 @@ def _hint_for_status(status_code: int, path: str) -> str:
     if status_code == 400:
         return "Bad request — check the parameters and payload for this call."
     if status_code == 401:
-        return (
-            "Authentication failed — check the username and the "
-            "VMWARE_<TARGET>_PASSWORD env var for this target."
-        )
+        return "Authentication failed — check the username and the VMWARE_<TARGET>_PASSWORD env var for this target."
     if status_code == 403:
         return (
             "Permission denied — the account lacks the required NSX RBAC role "
@@ -105,6 +102,7 @@ class NsxClient:
         # the process-global side-effects of warnings.filterwarnings().
         if not target.verify_ssl:
             import urllib3
+
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         # No client-level auth — credentials are sent via form body in
@@ -138,8 +136,10 @@ class NsxClient:
         # Characters curl preserves unencoded in -d form data
         _SAFE = "!)*-._~"
         body = (
-            "j_username=" + quote(self._target.username, safe=_SAFE)
-            + "&j_password=" + quote(self._password, safe=_SAFE)
+            "j_username="
+            + quote(self._target.username, safe=_SAFE)
+            + "&j_password="
+            + quote(self._password, safe=_SAFE)
         )
         try:
             resp = self._client.post(
@@ -148,9 +148,16 @@ class NsxClient:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         except (httpx.TimeoutException, httpx.TransportError) as exc:
+            tls_hint = ""
+            if "certificate" in str(exc).lower() or "ssl" in str(exc).lower():
+                tls_hint = (
+                    " This looks like a TLS certificate failure — for a "
+                    "self-signed lab manager set verify_ssl: false for this "
+                    "target in config.yaml (or re-run 'vmware-nsx-security init')."
+                )
             raise NsxApiError(
                 f"NSX session creation for {self._target.host} could not "
-                f"connect: {exc}. Check the host/port and network, then retry.",
+                f"connect: {exc}. Check the host/port and network, then retry." + tls_hint,
                 method="POST",
                 path="/api/session/create",
             ) from exc
@@ -160,7 +167,10 @@ class NsxClient:
                 f"HTTP {resp.status_code}. Check the username in config.yaml "
                 "and the VMWARE_<TARGET>_PASSWORD env var in "
                 "~/.vmware-nsx-security/.env — wrong credentials are the "
-                "usual cause. Run 'vmware-nsx-security doctor' to verify.",
+                "usual cause. Special characters in the password are handled "
+                "via form-body auth, so they are not the issue. Run "
+                "'vmware-nsx-security init' to reset credentials or "
+                "'vmware-nsx-security doctor' to verify.",
                 status_code=resp.status_code,
                 method="POST",
                 path="/api/session/create",
@@ -214,17 +224,14 @@ class NsxClient:
         reauthed = False
         while True:
             try:
-                resp = self._client.request(
-                    method, path, headers=self._headers(), params=params, json=json_data
-                )
+                resp = self._client.request(method, path, headers=self._headers(), params=params, json=json_data)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 if is_get and attempt < retries:
                     attempt += 1
                     time.sleep(_RETRY_DELAY_SEC)
                     continue
                 raise NsxApiError(
-                    f"NSX {method} {path} could not connect: {exc}. "
-                    "Check the host/port and network, then retry.",
+                    f"NSX {method} {path} could not connect: {exc}. Check the host/port and network, then retry.",
                     method=method,
                     path=path,
                 ) from exc
@@ -245,17 +252,14 @@ class NsxClient:
 
             if resp.status_code >= 400:
                 raise NsxApiError(
-                    f"NSX {method} {path} returned HTTP {resp.status_code}. "
-                    f"{_hint_for_status(resp.status_code, path)}",
+                    f"NSX {method} {path} returned HTTP {resp.status_code}. {_hint_for_status(resp.status_code, path)}",
                     status_code=resp.status_code,
                     method=method,
                     path=path,
                 )
             return resp
 
-    def get(
-        self, path: str, params: dict[str, Any] | None = None, *, retries: int = 1
-    ) -> dict:
+    def get(self, path: str, params: dict[str, Any] | None = None, *, retries: int = 1) -> dict:
         """Single GET request. Returns JSON response.
 
         Pass retries=0 for probes where an error status is itself the answer
